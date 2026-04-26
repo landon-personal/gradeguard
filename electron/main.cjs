@@ -1,7 +1,4 @@
 const { app, BrowserWindow, shell } = require('electron');
-const path = require('path');
-
-const isDev = !app.isPackaged;
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -17,11 +14,7 @@ function createWindow() {
     },
   });
 
-  if (isDev) {
-    win.loadURL('http://localhost:5173');
-  } else {
-    win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
-  }
+  win.loadURL('https://gradeguard.org');
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
