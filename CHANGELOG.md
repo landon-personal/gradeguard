@@ -49,6 +49,8 @@ The new web canonical was seeded from a snapshot before several previous-shift f
 - **BadgeUnlockToast nested fade-out timer** — the inner `setTimeout(onDone, 450)` for the exit animation wasn't cleared on unmount. Stored in a ref and cleared in the cleanup.
 - **InviteLinkButton "Copied" timer** — same unmount/re-arm pattern as FriendChatPanel — centralized the timer in a ref with armDoneTimer() and a useEffect cleanup.
 - **Tests `handleMarkDone`** — optimistic completion update had no revert on save failure (parity with the Dashboard `handleCompleteFromTodo` fix earlier this shift). Now snapshots the cache and restores it on mutation error.
+- **Onboarding `handleAuth`** — moved `setAuthLoading(false)` into a finally (was previously unreachable if the catch block itself threw) and added a double-submit guard.
+- **AdminDashboard `adminWrite`** — backend `adminWriteOperation` may return `{ error: "..." }` in a 200 response (matching the entityProxy TOKEN_EXPIRED pattern). Without checking, `useMutation` treated soft failures as successes — admin schools/anonymization toggles thought they saved when they hadn't. Now translates the error field into a thrown Error, and TOKEN_EXPIRED specifically clears storage and redirects to the session-expired flow (same shape as `secureEntities`).
 
 ### Polish (web)
 - **SmartTodoList** — the "Generated Xm ago" stamp on the dashboard's AI plan card was computed at render time and never re-rendered. Added a 60s tick so the relative time stays accurate without a full re-fetch.
