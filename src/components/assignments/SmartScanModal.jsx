@@ -14,6 +14,7 @@ export default function SmartScanModal({ onClose, onAssignmentsFound }) {
   const [clarifyingQuestion, setClarifyingQuestion] = useState("");
   const [clarifyingAnswer, setClarifyingAnswer] = useState("");
   const [loadingClarify, setLoadingClarify] = useState(false);
+  const [scanError, setScanError] = useState(null);
   const fileRef = useRef(null);
 
   // Returns the first assignment + field that needs clarification
@@ -36,12 +37,14 @@ export default function SmartScanModal({ onClose, onAssignmentsFound }) {
   const handleFile = async (file) => {
     if (!file) return;
     setStep("scanning");
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    setImageUrl(file_url);
+    setScanError(null);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      setImageUrl(file_url);
 
-    const result = await base44.integrations.Core.InvokeLLM({
-      model: "gpt_5",
-      prompt: `You are scanning a student's agenda, homework planner, or assignment sheet. 
+      const result = await base44.integrations.Core.InvokeLLM({
+        model: "gpt_5",
+        prompt: `You are scanning a student's agenda, homework planner, or assignment sheet.
 Extract all assignments you can see. For each one, identify:
 - Assignment name (required)
 - Subject/course (if visible)
@@ -50,74 +53,90 @@ Extract all assignments you can see. For each one, identify:
 - Estimated time in minutes
 
 Return only what you can clearly infer. If info is missing, leave it null.`,
-      file_urls: [file_url],
-      response_json_schema: {
-        type: "object",
-        properties: {
-          assignments: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                name: { type: "string" },
-                subject: { type: "string" },
-                due_date: { type: "string" },
-                difficulty: { type: "string", enum: ["easy", "medium", "hard"] },
-                time_estimate: { type: "number" }
-              },
-              required: ["name"]
+        file_urls: [file_url],
+        response_json_schema: {
+          type: "object",
+          properties: {
+            assignments: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  subject: { type: "string" },
+                  due_date: { type: "string" },
+                  difficulty: { type: "string", enum: ["easy", "medium", "hard"] },
+                  time_estimate: { type: "number" }
+                },
+                required: ["name"]
+              }
             }
           }
         }
+      });
+
+      const found = result.assignments || [];
+      setAssignments(found);
+      setSelected(found.map((_, i) => i));
+
+      const missing = findMissing(found);
+      if (missing) {
+        setClarifyingIndex(missing.index);
+        setClarifyingField(missing.field);
+        setClarifyingQuestion(missing.question);
+        setClarifyingAnswer("");
+        setStep("clarifying");
+      } else {
+        setStep("results");
       }
-    });
-
-    const found = result.assignments || [];
-    setAssignments(found);
-    setSelected(found.map((_, i) => i));
-
-    const missing = findMissing(found);
-    if (missing) {
-      setClarifyingIndex(missing.index);
-      setClarifyingField(missing.field);
-      setClarifyingQuestion(missing.question);
-      setClarifyingAnswer("");
-      setStep("clarifying");
-    } else {
-      setStep("results");
+    } catch (e) {
+      console.error("SmartScan failed:", e);
+      setScanError(e?.message || "Couldn't scan that image. Please try a clearer photo or a different file.");
+      setStep("upload");
     }
   };
 
   const handleClarifySubmit = async () => {
-    if (!clarifyingAnswer.trim()) return;
+    if (!clarifyingAnswer.trim() || loadingClarify) return;
     setLoadingClarify(true);
 
-    // Use AI to parse the user's answer into the correct field value
-    let parsed = clarifyingAnswer.trim();
-    if (clarifyingField === "due_date") {
-      const res = await base44.integrations.Core.InvokeLLM({
-        model: "gpt_5",
-        prompt: `Today is ${new Date().toISOString().split("T")[0]}. The student said the due date is: "${clarifyingAnswer}". Convert this to a YYYY-MM-DD date string. Return only the date.`,
-        response_json_schema: { type: "object", properties: { date: { type: "string" } } }
-      });
-      parsed = res.date || clarifyingAnswer;
-    }
+    try {
+      // Use AI to parse the user's answer into the correct field value
+      let parsed = clarifyingAnswer.trim();
+      if (clarifyingField === "due_date") {
+        const res = await base44.integrations.Core.InvokeLLM({
+          model: "gpt_5",
+          prompt: `Today is ${new Date().toISOString().split("T")[0]}. The student said the due date is: "${clarifyingAnswer}". Convert this to a YYYY-MM-DD date string. Return only the date.`,
+          response_json_schema: { type: "object", properties: { date: { type: "string" } } }
+        });
+        parsed = res.date || clarifyingAnswer;
+      }
 
-    const updated = assignments.map((a, i) =>
-      i === clarifyingIndex ? { ...a, [clarifyingField]: parsed } : a
-    );
-    setAssignments(updated);
+      const updated = assignments.map((a, i) =>
+        i === clarifyingIndex ? { ...a, [clarifyingField]: parsed } : a
+      );
+      setAssignments(updated);
 
-    const missing = findMissing(updated);
-    if (missing) {
-      setClarifyingIndex(missing.index);
-      setClarifyingField(missing.field);
-      setClarifyingQuestion(missing.question);
-      setClarifyingAnswer("");
-    } else {
+      const missing = findMissing(updated);
+      if (missing) {
+        setClarifyingIndex(missing.index);
+        setClarifyingField(missing.field);
+        setClarifyingQuestion(missing.question);
+        setClarifyingAnswer("");
+      } else {
+        setStep("results");
+      }
+    } catch (e) {
+      console.error("Clarify submit failed:", e);
+      // Use the raw answer as a fallback
+      const updated = assignments.map((a, i) =>
+        i === clarifyingIndex ? { ...a, [clarifyingField]: clarifyingAnswer.trim() } : a
+      );
+      setAssignments(updated);
       setStep("results");
+    } finally {
+      setLoadingClarify(false);
     }
-    setLoadingClarify(false);
   };
 
   const toggleSelect = (i) => {
@@ -151,6 +170,11 @@ Return only what you can clearly infer. If info is missing, leave it null.`,
           <AnimatePresence mode="wait">
             {step === "upload" && (
               <motion.div key="upload" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                {scanError && (
+                  <div className="mb-3 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+                    {scanError}
+                  </div>
+                )}
                 <div
                   onClick={() => fileRef.current?.click()}
                   className="border-2 border-dashed border-indigo-200 rounded-xl p-10 flex flex-col items-center gap-3 cursor-pointer hover:bg-indigo-50 transition-colors"

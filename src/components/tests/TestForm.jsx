@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
+import { toast } from "sonner";
 import AIProgressBar from "@/components/ai/AIProgressBar";
 
 const SUBJECTS = ["Math", "Science", "English", "Social Studies", "Foreign Language", "Art", "Physical Education", "Computer Science", "Music", "Other"];
@@ -29,27 +30,33 @@ export default function TestForm({ test, onSubmit, onCancel, isLoading }) {
   };
 
   const handleAISuggest = async () => {
-    if (!form.name || !form.subject) return;
+    if (!form.name || !form.subject || aiLoading) return;
     setAiLoading(true);
-    const result = await base44.integrations.Core.InvokeLLM({
-      prompt: `A middle/high school student has a test called "${form.name}" for "${form.subject}".
+    try {
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt: `A middle/high school student has a test called "${form.name}" for "${form.subject}".
 Suggest:
 1. Expected difficulty (easy, medium, or hard)
 2. Key topics they should study (as a short comma-separated list, max 6 topics)`,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          difficulty: { type: "string", enum: ["easy", "medium", "hard"] },
-          topics: { type: "string" }
+        response_json_schema: {
+          type: "object",
+          properties: {
+            difficulty: { type: "string", enum: ["easy", "medium", "hard"] },
+            topics: { type: "string" }
+          }
         }
-      }
-    });
-    setForm(prev => ({
-      ...prev,
-      difficulty: result.difficulty || prev.difficulty,
-      topics: prev.topics || result.topics || prev.topics
-    }));
-    setAiLoading(false);
+      });
+      setForm(prev => ({
+        ...prev,
+        difficulty: result.difficulty || prev.difficulty,
+        topics: prev.topics || result.topics || prev.topics
+      }));
+    } catch (e) {
+      console.error("AI suggest failed:", e);
+      toast.error("Couldn't get AI suggestions right now. You can fill in the fields yourself.");
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const isValid = form.name && form.subject && form.test_date;

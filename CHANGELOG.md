@@ -6,6 +6,40 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [1.2.0] — 2026-04-26 — Welcome / Preferences window + web bug fixes
+
+### Added (desktop)
+- **Welcome window on first launch** (`electron/preferences.html` + `preferences.cjs`) — opens automatically the first time you run GradeGuard, explaining the menu-bar timer and keyboard shortcuts. This was a real discoverability gap in 1.1.0 — users had no way to know what desktop features existed.
+- **Preferences window** — accessible via tray menu *Preferences…* (or `⌘,` on Mac). Lets you toggle "Open at login" without diving into System Settings.
+- **First-launch flag** — written to `userData/.first-launch-shown` so the welcome only shows once.
+- **`⌘,` shortcut** to open Preferences on Mac.
+- **Cmd+Shift+F shortcut hint** added to the tray menu's "Start focus session" label (was missing).
+
+### Fixed (web — pushed to base44dev/grade-guard, auto-syncs to gradeguard.org)
+8 critical "stuck on Loading…" bugs across the AI flows. Pattern: an API/LLM call without `try/catch/finally` would leave the loading spinner spinning forever if the call failed. Fixed:
+- `WeeklySummaryButton.handleSend` — share weekly summary via email
+- `AnonymizationToggle.handleAnonymize` — admin anonymize-all-students action
+- `StudySchedule.generateSchedule` — flagship AI study schedule generator (also added an error-state UI with a "Try again" button)
+- `AIAssignmentChat.send` — chat-to-add-assignments flow (also handles malformed JSON from LLM gracefully)
+- `StudyAssistant.generateFlashcards` — AI flashcard generator
+- `AssignmentForm.handleAISuggest` — AI subject/difficulty/time suggestions on the new-assignment form
+- `TestForm.handleAISuggest` — same on the new-test form
+- `SmartScanModal.handleFile` + `handleClarifySubmit` — photo-scan-an-agenda OCR flow (also added a visible error message and falls back to upload step instead of getting stuck)
+
+Each fix pairs the wrap with a double-submit guard (`if (loading) return`) so rapid clicking can't fire duplicate API calls.
+
+### Changed (web)
+- `TodaysFocusCard` now renders an "All caught up!" empty state with a CTA button when the user has no pending items. Previously returned `null`, which made the dashboard feel empty for new users.
+- `TodaysFocusCard` is now clickable — tapping it navigates to `/Assignments` or `/Tests` depending on the focus item.
+- Added `toast.error()` feedback on `AssignmentForm` and `TestForm` AI-suggest failures.
+- Auto-fixed 30 unused-import lint errors across 17 files.
+
+### Why
+- **Welcome window:** new users were installing the desktop app, seeing the website inside a window, and having no clue about the menu-bar timer / focus mode / hotkeys. The Preferences window also surfaces the auto-launch toggle, which was previously buried in macOS System Settings.
+- **Bug fixes:** every AI flow in the app was vulnerable to silent network failures leaving the UI hung. Particularly bad for the school verification push — a school admin tries the demo, the AI hiccups once, and the app appears broken.
+
+---
+
 ## [1.1.0] — 2026-04-26 — Desktop study tools
 
 First release with real desktop-only features. The previous releases were essentially the website in a window; this is the first one where downloading the app gives you something the website can't.

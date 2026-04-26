@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
+import { toast } from "sonner";
 import AIProgressBar from "@/components/ai/AIProgressBar";
 
 
@@ -38,10 +39,11 @@ export default function AssignmentForm({ assignment, onSubmit, onCancel, isLoadi
   };
 
   const handleAISuggest = async () => {
-    if (!form.name) return;
+    if (!form.name || aiLoading) return;
     setAiLoading(true);
-    const result = await base44.integrations.Core.InvokeLLM({
-      prompt: `A middle/high school student has an assignment named: "${form.name}"${form.subject ? ` for subject: "${form.subject}"` : ""}.
+    try {
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt: `A middle/high school student has an assignment named: "${form.name}"${form.subject ? ` for subject: "${form.subject}"` : ""}.
 
 Suggest:
 1. The subject category (pick the best match from: ${SUBJECTS.join(", ")})
@@ -49,23 +51,28 @@ Suggest:
 3. Estimated time to complete in minutes
 
 Be realistic for a middle/high school student.`,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          subject: { type: "string" },
-          difficulty: { type: "string", enum: ["easy", "medium", "hard"] },
-          time_estimate: { type: "number" }
+        response_json_schema: {
+          type: "object",
+          properties: {
+            subject: { type: "string" },
+            difficulty: { type: "string", enum: ["easy", "medium", "hard"] },
+            time_estimate: { type: "number" }
+          }
         }
-      }
-    });
-    setForm(prev => ({
-      ...prev,
-      subject: prev.subject || result.subject || prev.subject,
-      difficulty: result.difficulty || prev.difficulty,
-      time_estimate: result.time_estimate || prev.time_estimate
-    }));
-    setAiSuggested(true);
-    setAiLoading(false);
+      });
+      setForm(prev => ({
+        ...prev,
+        subject: prev.subject || result.subject || prev.subject,
+        difficulty: result.difficulty || prev.difficulty,
+        time_estimate: result.time_estimate || prev.time_estimate
+      }));
+      setAiSuggested(true);
+    } catch (e) {
+      console.error("AI suggest failed:", e);
+      toast.error("Couldn't get AI suggestions right now. You can fill in the fields yourself.");
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const isValid = form.name && form.subject && form.due_date;

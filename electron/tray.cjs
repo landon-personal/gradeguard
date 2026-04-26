@@ -82,13 +82,13 @@ function tick() {
   tray.setTitle(text);
 }
 
-function buildMenu({ openMain, openQuickAdd, openFocus, quit } = lastHandlers) {
-  lastHandlers = { openMain, openQuickAdd, openFocus, quit };
+function buildMenu({ openMain, openQuickAdd, openFocus, openPreferences, quit } = lastHandlers) {
+  lastHandlers = { openMain, openQuickAdd, openFocus, openPreferences, quit };
   const running = totalSeconds > 0;
   const items = [
     { label: 'Open GradeGuard', click: () => openMain && openMain() },
     { label: 'Quick add assignment  (⌘⇧G)', click: () => openQuickAdd && openQuickAdd() },
-    { label: 'Start focus session', click: () => openFocus && openFocus() },
+    { label: 'Start focus session  (⌘⇧F)', click: () => openFocus && openFocus() },
     { type: 'separator' },
     { label: 'Study timer', enabled: false },
     ...PRESETS.map((p) => ({
@@ -106,6 +106,7 @@ function buildMenu({ openMain, openQuickAdd, openFocus, quit } = lastHandlers) {
   }
   items.push(
     { type: 'separator' },
+    { label: 'Preferences…', click: () => openPreferences && openPreferences() },
     { label: 'Quit GradeGuard', click: () => quit && quit() },
   );
   tray.setContextMenu(Menu.buildFromTemplate(items));

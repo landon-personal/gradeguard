@@ -3,6 +3,7 @@ const path = require('path');
 const { createTray } = require('./tray.cjs');
 const { openFocusOverlay } = require('./focus.cjs');
 const { openQuickAdd } = require('./quickadd.cjs');
+const { openPreferences, isFirstLaunch, registerIpc: registerPrefsIpc } = require('./preferences.cjs');
 
 let mainWin = null;
 
@@ -55,6 +56,11 @@ function setupAppMenu() {
       label: 'GradeGuard',
       submenu: [
         { label: 'About GradeGuard', role: 'about' },
+        {
+          label: 'Preferences…',
+          accelerator: 'CmdOrCtrl+,',
+          click: () => openPreferences(),
+        },
         { type: 'separator' },
         {
           label: 'Quick add assignment',
@@ -84,11 +90,13 @@ function setupAppMenu() {
 app.whenReady().then(() => {
   createMainWindow();
   setupAppMenu();
+  registerPrefsIpc();
 
   createTray({
     openMain: () => createMainWindow(),
     openQuickAdd: () => openQuickAdd(),
     openFocus: () => openFocusOverlay(),
+    openPreferences: () => openPreferences(),
     quit: () => {
       app.isQuitting = true;
       app.quit();
@@ -99,6 +107,10 @@ app.whenReady().then(() => {
   globalShortcut.register('CommandOrControl+Shift+F', () => openFocusOverlay());
 
   setupAutoLaunch();
+
+  if (isFirstLaunch()) {
+    setTimeout(() => openPreferences({ welcome: true }), 800);
+  }
 
   ipcMain.on('focus:done', (_event, minutes) => {
     if (Notification.isSupported()) {

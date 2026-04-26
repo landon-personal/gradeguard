@@ -1,9 +1,11 @@
 import { motion } from "framer-motion";
-import { BookOpen, FlaskConical } from "lucide-react";
+import { BookOpen, FlaskConical, Sparkles } from "lucide-react";
 import { differenceInDays } from "date-fns";
+import { useNavigate } from "react-router-dom";
 import { parseLocalDate } from "../utils/dateUtils";
 
 export default function TodaysFocusCard({ assignments, tests }) {
+  const navigate = useNavigate();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -30,7 +32,42 @@ export default function TodaysFocusCard({ assignments, tests }) {
   const all = [...scoredAssignments, ...scoredTests].sort((a, b) => b.urgency - a.urgency);
   const focus = all[0];
 
-  if (!focus) return null;
+  if (!focus) {
+    return (
+      <motion.div
+        className="rounded-2xl p-4 h-full flex flex-col"
+        style={{
+          background: "rgba(255,255,255,0.55)",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          border: "1px solid rgba(255,255,255,0.65)",
+          boxShadow: "0 8px 28px rgba(99,102,241,0.15)"
+        }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold text-gray-900">Today's Focus</h3>
+            <p className="text-xs text-gray-400">Your most urgent next step</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white shadow-sm">
+            <Sparkles className="w-5 h-5" />
+          </div>
+        </div>
+        <div className="mt-4 flex-1 flex flex-col items-start justify-center">
+          <p className="text-base font-semibold text-gray-900 leading-snug">All caught up!</p>
+          <p className="text-sm text-gray-500 mt-1">Add an assignment or test to see your focus for today.</p>
+          <button
+            onClick={() => navigate("/Assignments")}
+            className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+          >
+            Add an assignment →
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
+
+  const navigateTarget = focus.itemType === "test" ? "/Tests" : "/Assignments";
 
   const isTest = focus.itemType === "test";
   const daysLabel = focus.days < 0 ?
@@ -50,7 +87,12 @@ export default function TodaysFocusCard({ assignments, tests }) {
   const Icon = isTest ? FlaskConical : BookOpen;
 
   return (
-    <motion.div className="rounded-2xl p-4 h-full" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", border: "1px solid rgba(255,255,255,0.65)", boxShadow: `0 8px 28px ${urgencyColor.shadow}` }}>
+    <motion.div
+      onClick={() => navigate(navigateTarget)}
+      whileHover={{ y: -2 }}
+      className="rounded-2xl p-4 h-full cursor-pointer transition-shadow hover:shadow-lg"
+      style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", border: "1px solid rgba(255,255,255,0.65)", boxShadow: `0 8px 28px ${urgencyColor.shadow}` }}
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="font-semibold text-gray-900">Today’s Focus</h3>
@@ -75,44 +117,4 @@ export default function TodaysFocusCard({ assignments, tests }) {
       </div>
     </motion.div>
   );
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 }
