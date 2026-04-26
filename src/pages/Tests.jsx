@@ -20,6 +20,7 @@ import OfflineNotice from "../components/common/OfflineNotice";
 import useOfflineEntityData from "../hooks/useOfflineEntityData";
 import useDebouncedValue from "../hooks/useDebouncedValue";
 import { matchesTestSearch } from "../lib/naturalLanguageFilters";
+import { toast } from "sonner";
 
 export default function TestsPage() {
   const queryClient = useQueryClient();
@@ -102,17 +103,20 @@ export default function TestsPage() {
 
   const createMutation = useMutation({
     mutationFn: (data) => secureEntity("Test").create({ ...data, user_email: userEmail, status: 'upcoming' }),
-    onSuccess: () => { queryClient.invalidateQueries(['tests']); setShowForm(false); }
+    onSuccess: () => { queryClient.invalidateQueries(['tests']); setShowForm(false); },
+    onError: (error) => toast.error(error?.message || "Couldn't save the test. Please try again.")
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => secureEntity("Test").update(id, data),
-    onSuccess: () => { queryClient.invalidateQueries(['tests']); setEditingTest(null); setShowForm(false); }
+    onSuccess: () => { queryClient.invalidateQueries(['tests']); setEditingTest(null); setShowForm(false); },
+    onError: (error) => toast.error(error?.message || "Couldn't update the test. Please try again.")
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id) => secureEntity("Test").delete(id),
-    onSuccess: () => queryClient.invalidateQueries(['tests'])
+    onSuccess: () => queryClient.invalidateQueries(['tests']),
+    onError: (error) => toast.error(error?.message || "Couldn't delete the test. Please try again.")
   });
 
   const handleSubmit = (formData) => {

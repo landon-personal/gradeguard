@@ -13,6 +13,7 @@ import SchoolAnalytics from "../components/admin/SchoolAnalytics";
 import StudentList from "../components/admin/StudentList";
 import FlaggedMessagesPanel from "../components/admin/FlaggedMessagesPanel";
 import AnonymizationToggle from "../components/admin/AnonymizationToggle";
+import { toast } from "sonner";
 import { getQualifiedAssignmentCount } from "@/lib/assignmentQuality";
 import { Link } from "react-router-dom";
 
@@ -62,7 +63,8 @@ export default function AdminDashboardPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard-data'] });
       setShowForm(false);
       setForm({ name: "", description: "", sso_provider: "none", sso_domain: "", school_hours_start: "", school_hours_end: "", study_hall_start: "", study_hall_end: "", brand_name: "", brand_logo_url: "", brand_primary_color: "", brand_tagline: "" });
-    }
+    },
+    onError: (error) => toast.error(error?.message || "Couldn't create the school. Please try again.")
   });
 
   const updateMutation = useMutation({
@@ -71,12 +73,14 @@ export default function AdminDashboardPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard-data'] });
       setEditingSchool(null);
       setShowForm(false);
-    }
+    },
+    onError: (error) => toast.error(error?.message || "Couldn't update the school. Please try again.")
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id) => adminWrite("delete", "School", id, null),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-dashboard-data'] })
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-dashboard-data'] }),
+    onError: (error) => toast.error(error?.message || "Couldn't delete the school. Please try again.")
   });
 
   const handleDeleteSchoolConfirm = () => {

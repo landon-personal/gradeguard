@@ -22,6 +22,7 @@ import XPGainToast from "../components/gamification/XPGainToast";
 import useOfflineEntityData from "../hooks/useOfflineEntityData";
 import useDebouncedValue from "../hooks/useDebouncedValue";
 import { matchesAssignmentSearch } from "../lib/naturalLanguageFilters";
+import { toast } from "sonner";
 
 export default function AssignmentsPage() {
   const queryClient = useQueryClient();
@@ -69,7 +70,8 @@ export default function AssignmentsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries(['assignments']);
       setShowForm(false);
-    }
+    },
+    onError: (error) => toast.error(error?.message || "Couldn't save the assignment. Please try again.")
   });
 
   const updateMutation = useMutation({
@@ -78,12 +80,14 @@ export default function AssignmentsPage() {
       queryClient.invalidateQueries(['assignments']);
       setEditingAssignment(null);
       setShowForm(false);
-    }
+    },
+    onError: (error) => toast.error(error?.message || "Couldn't update the assignment. Please try again.")
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id) => secureEntity("Assignment").delete(id),
-    onSuccess: () => queryClient.invalidateQueries(['assignments'])
+    onSuccess: () => queryClient.invalidateQueries(['assignments']),
+    onError: (error) => toast.error(error?.message || "Couldn't delete the assignment. Please try again.")
   });
 
   const handleDeleteRequest = useCallback((id) => setDeleteConfirm(id), []);
