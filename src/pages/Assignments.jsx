@@ -18,7 +18,6 @@ import { useAuth } from "../components/AuthGuard";
 import ChromeExtensionNudge from "../components/ChromeExtensionNudge";
 import OfflineNotice from "../components/common/OfflineNotice";
 import IllustratedEmptyState from "../components/common/IllustratedEmptyState";
-import ConfirmDialog from "../components/common/ConfirmDialog";
 import XPGainToast from "../components/gamification/XPGainToast";
 import useOfflineEntityData from "../hooks/useOfflineEntityData";
 import useDebouncedValue from "../hooks/useDebouncedValue";

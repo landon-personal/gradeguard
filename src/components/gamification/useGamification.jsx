@@ -1,7 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
 import { secureEntity } from "@/lib/secureEntities";
-import { calcPointsForAssignment, getNewBadges, BONUS_EARLY } from "./BadgeDefinitions";
+import { calcPointsForAssignment, getNewBadges } from "./BadgeDefinitions";
 import { calcStreak } from "./streakUtils";
 
 export function useGamification(user, assignments) {

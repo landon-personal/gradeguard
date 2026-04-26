@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell
 } from "recharts";
 import { format, subDays, startOfDay } from "date-fns";
 

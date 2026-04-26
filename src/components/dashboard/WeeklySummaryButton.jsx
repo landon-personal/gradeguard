@@ -14,24 +14,29 @@ export default function WeeklySummaryButton() {
   const [error, setError] = useState("");
 
   const handleSend = async () => {
-    if (!recipientEmail.trim()) return;
+    if (!recipientEmail.trim() || loading) return;
     setLoading(true);
     setError("");
-    const response = await base44.functions.invoke('weeklySummaryEmail', {
-      recipient_email: recipientEmail.trim(),
-      recipient_name: recipientName.trim()
-    });
-    setLoading(false);
-    if (response.data?.error) {
-      setError(response.data.error);
-    } else {
-      setSent(true);
-      setTimeout(() => {
-        setOpen(false);
-        setSent(false);
-        setRecipientEmail("");
-        setRecipientName("");
-      }, 2500);
+    try {
+      const response = await base44.functions.invoke('weeklySummaryEmail', {
+        recipient_email: recipientEmail.trim(),
+        recipient_name: recipientName.trim()
+      });
+      if (response.data?.error) {
+        setError(response.data.error);
+      } else {
+        setSent(true);
+        setTimeout(() => {
+          setOpen(false);
+          setSent(false);
+          setRecipientEmail("");
+          setRecipientName("");
+        }, 2500);
+      }
+    } catch (e) {
+      setError(e?.message || "Couldn't send the summary. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 

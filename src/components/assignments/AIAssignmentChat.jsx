@@ -84,31 +84,46 @@ export default function AIAssignmentChat({ onClose, onAssignmentsFound }) {
 
     const history = updated.map(m => `${m.role === "user" ? "Student" : "Assistant"}: ${m.content}`).join("\n");
 
-    const result = await base44.integrations.Core.InvokeLLM({
-      prompt: `${SYSTEM_PROMPT}\n\nConversation so far:\n${history}\n\nRespond as the assistant now.`
-    });
+    try {
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt: `${SYSTEM_PROMPT}\n\nConversation so far:\n${history}\n\nRespond as the assistant now.`
+      });
 
-    const reply = typeof result === "string" ? result : result.reply || "";
+      const reply = typeof result === "string" ? result : result.reply || "";
 
-    // Parse ASSIGNMENTS_READY block if present
-    const marker = "ASSIGNMENTS_READY:";
-    const idx = reply.indexOf(marker);
-    if (idx !== -1) {
-      const jsonStr = reply.slice(idx + marker.length).trim();
-      const cleanJson = jsonStr.split("\n")[0];
-      const parsed = JSON.parse(cleanJson);
-      const displayReply = reply.slice(0, idx).trim() || "Got it! Adding your assignments now ✅";
-      setMessages(prev => [...prev, { role: "assistant", content: displayReply }]);
+      // Parse ASSIGNMENTS_READY block if present
+      const marker = "ASSIGNMENTS_READY:";
+      const idx = reply.indexOf(marker);
+      if (idx !== -1) {
+        const jsonStr = reply.slice(idx + marker.length).trim();
+        const cleanJson = jsonStr.split("\n")[0];
+        let parsed;
+        try {
+          parsed = JSON.parse(cleanJson);
+        } catch {
+          // LLM returned malformed JSON — fall through and show the reply as-is
+          setMessages(prev => [...prev, { role: "assistant", content: reply }]);
+          return;
+        }
+        const displayReply = reply.slice(0, idx).trim() || "Got it! Adding your assignments now ✅";
+        setMessages(prev => [...prev, { role: "assistant", content: displayReply }]);
+        setTimeout(() => {
+          onAssignmentsFound(parsed.assignments || []);
+          onClose();
+        }, 800);
+        return;
+      }
+
+      setMessages(prev => [...prev, { role: "assistant", content: reply }]);
+    } catch (e) {
+      console.error("AIAssignmentChat send failed:", e);
+      setMessages(prev => [...prev, {
+        role: "assistant",
+        content: "Sorry, I had trouble responding. Please try again.",
+      }]);
+    } finally {
       setLoading(false);
-      setTimeout(() => {
-        onAssignmentsFound(parsed.assignments || []);
-        onClose();
-      }, 800);
-      return;
     }
-
-    setMessages(prev => [...prev, { role: "assistant", content: reply }]);
-    setLoading(false);
   };
 
   return (

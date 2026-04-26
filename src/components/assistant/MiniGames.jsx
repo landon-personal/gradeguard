@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { RotateCcw } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import AIProgressBar from "@/components/ai/AIProgressBar";

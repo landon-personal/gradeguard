@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { TrendingUp, TrendingDown, AlertCircle, BookOpen, ChevronDown, ChevronUp, Target, Clock } from "lucide-react";
+import { TrendingUp, AlertCircle, ChevronDown, ChevronUp, Target, Clock } from "lucide-react";
 import { differenceInDays } from "date-fns";
 
 function ScorePill({ pct }) {

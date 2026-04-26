@@ -5,7 +5,7 @@ import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { secureEntity } from "@/lib/secureEntities";
 import { useQuery } from "@tanstack/react-query";
-import { LayoutDashboard, BookOpen, School, LogOut, Menu, X, Trophy, MessageCircle, FlaskConical, Chrome, Users, ChevronDown, Plus } from "lucide-react";
+import { LayoutDashboard, BookOpen, School, LogOut, Menu, X, Trophy, MessageCircle, FlaskConical, Users, ChevronDown, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import NotificationBell from "./components/notifications/NotificationBell";

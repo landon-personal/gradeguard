@@ -10,6 +10,7 @@ export default function AnonymizationToggle({ school, studentCount, onComplete }
   const token = localStorage.getItem("gg_auth_token");
 
   const handleAnonymize = async () => {
+    if (loading) return;
     if (!confirm(`This will assign anonymous IDs to all ${studentCount} students in ${school.name}. Continue?`)) return;
     setLoading(true);
     try {
@@ -21,8 +22,9 @@ export default function AnonymizationToggle({ school, studentCount, onComplete }
       if (onComplete) onComplete();
     } catch (e) {
       setResult({ error: e.message });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   if (school.anonymize_students && !result) {

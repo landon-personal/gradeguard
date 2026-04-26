@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Zap, Clock, BookOpen, FlaskConical } from "lucide-react";
+import { BookOpen, FlaskConical } from "lucide-react";
 import { differenceInDays } from "date-fns";
 import { parseLocalDate } from "../utils/dateUtils";
 

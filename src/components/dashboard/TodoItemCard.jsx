@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Clock, CheckCircle2, ChevronRight, ClipboardList } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { haptic } from "../utils/haptics";

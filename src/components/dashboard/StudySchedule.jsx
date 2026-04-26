@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Send, Calendar, Clock, RefreshCw, Lightbulb } from "lucide-react";
+import { Send, Calendar, RefreshCw, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { base44 } from "@/api/base44Client";
@@ -60,6 +60,7 @@ export default function StudySchedule({ assignments, tests, profile, school }) {
   const [adjustment, setAdjustment] = useState("");
   const [adjusting, setAdjusting] = useState(false);
   const [history, setHistory] = useState([]);
+  const [error, setError] = useState(null);
 
   // Auto-generate when assignments/tests change (after first load)
   const dataKey = JSON.stringify([
@@ -79,7 +80,7 @@ export default function StudySchedule({ assignments, tests, profile, school }) {
       prevDataKey.current = dataKey;
       generateSchedule();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [dataKey, profile]);
 
   const buildContext = () => {
@@ -122,8 +123,10 @@ export default function StudySchedule({ assignments, tests, profile, school }) {
 
   const generateSchedule = async (adjustmentNote = null) => {
     if (!profile) return;
+    if (loading || adjusting) return;
     if (adjustmentNote) setAdjusting(true);
     else setLoading(true);
+    setError(null);
 
     const { assignmentsContext, testsContext, studentContext, today } = buildContext();
 
@@ -143,6 +146,7 @@ export default function StudySchedule({ assignments, tests, profile, school }) {
       ? `\n\nPrevious schedule for reference:\n${JSON.stringify(schedule.blocks, null, 2)}`
       : "";
 
+    try {
     const result = await base44.integrations.Core.InvokeLLM({
       prompt: `You are an expert academic coach creating a personalized daily study schedule for a middle/high school student.
 
@@ -188,13 +192,18 @@ Create a realistic, hour-by-hour study schedule for TODAY.
       }
     });
 
-    setSchedule(result);
-    if (adjustmentNote) {
-      setHistory(prev => [...prev, adjustmentNote]);
-      setAdjustment("");
+      setSchedule(result);
+      if (adjustmentNote) {
+        setHistory(prev => [...prev, adjustmentNote]);
+        setAdjustment("");
+      }
+    } catch (e) {
+      console.error("Failed to generate study schedule:", e);
+      setError(e?.message || "Couldn't generate your study schedule right now. Please try again.");
+    } finally {
+      setLoading(false);
+      setAdjusting(false);
     }
-    setLoading(false);
-    setAdjusting(false);
   };
 
   const handleAdjustSubmit = (e) => {
@@ -237,7 +246,19 @@ Create a realistic, hour-by-hour study schedule for TODAY.
         </div>
         <div className="text-center">
           <h3 className="font-bold text-gray-900 text-lg">Dynamic Study Schedule</h3>
-          <p className="text-sm text-gray-500 mt-1 max-w-xs">Add assignments or tests and your schedule will be generated automatically.</p>
+          {error ? (
+            <>
+              <p className="text-sm text-red-600 mt-1 max-w-xs">{error}</p>
+              <button
+                onClick={() => generateSchedule()}
+                className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+              >
+                Try again
+              </button>
+            </>
+          ) : (
+            <p className="text-sm text-gray-500 mt-1 max-w-xs">Add assignments or tests and your schedule will be generated automatically.</p>
+          )}
         </div>
       </div>
     );

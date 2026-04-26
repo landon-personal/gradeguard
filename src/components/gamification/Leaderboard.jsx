@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
 import { secureEntity } from "@/lib/secureEntities";
 import { Switch } from "@/components/ui/switch";
 import { Eye, EyeOff, Sparkles, Trophy, Zap } from "lucide-react";

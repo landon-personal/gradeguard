@@ -219,12 +219,14 @@ export default function StudyAssistantPage() {
   };
 
   const generateFlashcards = async (test) => {
+    if (loading) return;
     setLoading(true);
     setStudyTool(null);
     setMessages(prev => [...prev,
       { role: "user", content: `Generate flashcards for my ${test.name} test` },
       { role: "assistant", content: `Generating flashcards for **${test.name}** (${test.subject})... ✨` }
     ]);
+    try {
     const result = await base44.integrations.Core.InvokeLLM({
       model: "gpt_5",
       prompt: `Generate 10 flashcards for a student studying for a ${test.subject} test called "${test.name}".
@@ -251,11 +253,15 @@ export default function StudyAssistantPage() {
     });
     if (!result?.cards?.length) {
       setMessages(prev => [...prev, { role: "assistant", content: "Sorry, I had trouble generating the flashcards. Please try again!" }]);
-      setLoading(false);
       return;
     }
     setStudyTool({ type: "flashcards", data: result.cards, testName: test.name });
-    setLoading(false);
+    } catch (e) {
+      console.error("Failed to generate flashcards:", e);
+      setMessages(prev => [...prev, { role: "assistant", content: "Sorry, something went wrong generating flashcards. Please try again." }]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const generateQuiz = async (test) => {

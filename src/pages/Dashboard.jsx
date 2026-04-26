@@ -5,7 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { secureEntity } from "@/lib/secureEntities";
 import { RefreshCw, BookOpen, CheckCircle2, AlertTriangle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import SmartTodoList from "../components/dashboard/SmartTodoList";
 import ProgressCharts from "../components/dashboard/ProgressCharts";
 import WeeklySummaryButton from "../components/dashboard/WeeklySummaryButton";

@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { createPageUrl } from "@/utils";
-import { GraduationCap, BookOpen, Trophy, MessageCircle, FlaskConical, ArrowRight, CheckCircle, CheckCircle2, AlertTriangle, Sparkles, Brain, Zap, Star, Users, TrendingUp, Clock, Shield, ChevronRight } from "lucide-react";
+import { BookOpen, Trophy, MessageCircle, FlaskConical, ArrowRight, CheckCircle2, AlertTriangle, Sparkles, Brain, Clock, Shield, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import AmbientBackground from "../components/layout/AmbientBackground";

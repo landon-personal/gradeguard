@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, MessageCircle, Plus, Sparkles, Users, X } from "lucide-react";
+import { MessageCircle, Plus, Sparkles, Users } from "lucide-react";
 
 const updates = [
   {

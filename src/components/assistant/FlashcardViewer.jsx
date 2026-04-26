@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, RotateCcw, Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InlineMath, BlockMath } from "react-katex";
 import "katex/dist/katex.min.css";

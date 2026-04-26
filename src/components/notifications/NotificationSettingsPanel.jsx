@@ -3,7 +3,7 @@ import { Bell, BellOff, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { secureEntity } from "@/lib/secureEntities";
 import { useQueryClient } from "@tanstack/react-query";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 const DAY_OPTIONS = [
   { label: "Same day", value: 0 },
