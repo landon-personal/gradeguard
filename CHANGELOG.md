@@ -6,6 +6,29 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-26 (late-night shift)
+
+Pushed straight to the web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — new features
+- **Pomodoro focus timer** — floating persistent widget (bottom-left) available on every page. Three presets: Pomodoro 25/5, Long focus 50/10, Sprint 10/2. Circular SVG progress ring, Work/Break mode toggle, session dot tracker (suggests long break every 4 sessions), browser-tab title updates while running, desktop Notification API support.
+- **Essay Outliner** — new tool in Study Assistant (accessible via "Essay Outliner" chip in suggestion chips). Generates a structured outline with hook, thesis, body paragraphs (with evidence prompts), and conclusion. Supports 5 essay types and 2–5 body paragraphs. One-click copy to clipboard.
+- **Quick Focus Session cards on Dashboard** — three cards (Pomodoro/Long focus/Sprint) beneath the AI study plan that dispatch `gg:start-focus` to the Pomodoro widget, connecting the daily plan to the timer without page navigation.
+- **XP + badge toasts on Dashboard** — completing a todo item from the Dashboard now fires the same XP gain and badge unlock toasts that the Assignments page already had. Previously the `awardPoints()` return value was silently discarded.
+- **Quick-filter chips on Assignments page** — five one-click chips (Overdue, Due today, This week, Hard, In progress) pre-fill the natural-language search bar. Makes the existing NL search discoverable. Active chip shows a ring highlight; clicking again clears.
+- **Quick-filter chips on Tests page** — four chips (This week, Next week, Hard, Upcoming) with the same toggle pattern.
+- **Focus button on AI study plan todo cards** — each todo card now has a "Focus" button that opens the Pomodoro timer pre-set to a 25-min session, linking the daily AI plan directly to the focus timer.
+
+### Fixed (web) — double-submit guards + error handling
+- **RoomView `handleStartQuiz`** — wrapped LLM call + StudyRoom.update in try/catch/finally; added `if (generating) return;` guard. Previously a failed quiz generation left the room stuck on "Generating…".
+- **StudyRooms `handleCreate` + `handleJoin`** — both room actions now have try/catch/finally with `toast.error` and double-submit guards. A failed room create previously left the spinner running indefinitely.
+- **AssignmentForm `handleAISuggest`** — wrapped AI due-date suggestion in try/catch/finally with toast; added `if (!form.name || aiLoading) return;` guard.
+- **TestForm `handleAISuggest`** — same pattern as AssignmentForm.
+- **AssignmentAttachment `handleFileChange`** — file upload wrapped in try/catch/finally; double-submit guard prevents queuing multiple uploads for the same file.
+- **SmartScanModal `handleFile` + `handleClarifySubmit`** — both steps wrapped in try/catch/finally; errors reset the modal to the upload step so students aren't stuck on a frozen scan screen.
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
