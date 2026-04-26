@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Focus session</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        width: 100vw;
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        color: #f8fafc;
+        background:
+          radial-gradient(ellipse at 20% 10%, rgba(124, 58, 237, 0.45), transparent 60%),
+          radial-gradient(ellipse at 80% 90%, rgba(59, 130, 246, 0.35), transparent 60%),
+          #0b1020;
+      }
+      .stage {
+        height: 100%;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 28px;
+        padding: 40px;
+        text-align: center;
+      }
+      .label {
+        font-size: 18px;
+        font-weight: 500;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: rgba(248, 250, 252, 0.75);
+      }
+      .timer {
+        font-size: clamp(140px, 22vw, 280px);
+        font-weight: 200;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.04em;
+        text-shadow: 0 8px 60px rgba(0,0,0,0.4);
+      }
+      .preset {
+        font-size: 22px;
+        font-weight: 500;
+        color: rgba(248, 250, 252, 0.85);
+      }
+      .controls {
+        display: flex;
+        gap: 12px;
+        margin-top: 12px;
+      }
+      button {
+        font-family: inherit;
+        font-size: 15px;
+        font-weight: 500;
+        padding: 12px 22px;
+        border-radius: 999px;
+        border: 1px solid rgba(248, 250, 252, 0.25);
+        background: rgba(255, 255, 255, 0.08);
+        color: inherit;
+        cursor: pointer;
+        backdrop-filter: blur(10px);
+        transition: all 120ms ease;
+      }
+      button:hover {
+        background: rgba(255, 255, 255, 0.16);
+        border-color: rgba(248, 250, 252, 0.45);
+      }
+      button.primary {
+        background: rgba(255, 255, 255, 0.95);
+        color: #0b1020;
+        border-color: transparent;
+      }
+      button.primary:hover {
+        background: #fff;
+      }
+      .hint {
+        font-size: 13px;
+        color: rgba(248, 250, 252, 0.55);
+        margin-top: 24px;
+      }
+      .preset-picker {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .done {
+        font-size: 26px;
+        opacity: 0.85;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stage" id="stage">
+      <div class="label">Focus session</div>
+      <div class="preset" id="prompt">Choose how long you want to study</div>
+      <div class="preset-picker" id="picker">
+        <button data-min="15">15 min</button>
+        <button data-min="25">25 min</button>
+        <button data-min="50">50 min</button>
+        <button data-min="90">90 min</button>
+      </div>
+      <div class="hint">Press <b>Esc</b> at any time to leave</div>
+    </div>
+
+    <script>
+      const stage = document.getElementById('stage');
+      let interval = null;
+      let total = 0;
+      let left = 0;
+
+      function format(s) {
+        const mm = String(Math.floor(s / 60)).padStart(2, '0');
+        const ss = String(s % 60).padStart(2, '0');
+        return mm + ':' + ss;
+      }
+
+      function renderRunning() {
+        stage.innerHTML = `
+          <div class="label">Studying</div>
+          <div class="timer" id="t">${format(left)}</div>
+          <div class="controls">
+            <button id="stop">End early</button>
+          </div>
+          <div class="hint">Stay focused — you've got this</div>
+        `;
+        document.getElementById('stop').onclick = end;
+      }
+
+      function renderDone() {
+        if (interval) clearInterval(interval);
+        stage.innerHTML = `
+          <div class="label">Done</div>
+          <div class="done">Nice work — that's ${Math.round(total/60)} minutes of focused study.</div>
+          <div class="controls">
+            <button class="primary" onclick="window.close()">Close</button>
+          </div>
+        `;
+        if (window.electronAPI && window.electronAPI.notifyDone) {
+          window.electronAPI.notifyDone(Math.round(total/60));
+        }
+      }
+
+      function start(minutes) {
+        total = minutes * 60;
+        left = total;
+        renderRunning();
+        interval = setInterval(() => {
+          left -= 1;
+          if (left <= 0) {
+            renderDone();
+          } else {
+            const t = document.getElementById('t');
+            if (t) t.textContent = format(left);
+          }
+        }, 1000);
+      }
+
+      function end() {
+        if (interval) clearInterval(interval);
+        window.close();
+      }
+
+      document.getElementById('picker').addEventListener('click', (e) => {
+        const m = e.target?.dataset?.min;
+        if (m) start(parseInt(m, 10));
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') end();
+      });
+    </script>
+  </body>
+</html>

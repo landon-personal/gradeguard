@@ -2,7 +2,7 @@
   "name": "gradeguard",
   "productName": "GradeGuard",
   "private": true,
-  "version": "1.0.2",
+  "version": "1.1.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -12,10 +12,10 @@
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview",
-    "electron:dev": "vite build && electron .",
-    "dist": "vite build && electron-builder",
-    "dist:mac": "vite build && electron-builder --mac",
-    "dist:win": "vite build && electron-builder --win"
+    "electron:dev": "electron .",
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win"
   },
   "build": {
     "appId": "org.gradeguard.app",
@@ -24,7 +24,6 @@
       "output": "release"
     },
     "files": [
-      "dist/**/*",
       "electron/**/*"
     ],
     "mac": {
