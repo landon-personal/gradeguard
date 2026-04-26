@@ -157,6 +157,7 @@ export default function OnboardingPage() {
   const [firstName, setFirstName] = useState("");
   const [answers, setAnswers] = useState({});
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const [existingProfile, setExistingProfile] = useState(null);
 
@@ -278,15 +279,20 @@ export default function OnboardingPage() {
       setSchoolError("Please enter your school code.");
       return;
     }
-    const schools = await secureEntity("School").filter({ school_code: schoolCode.trim().toUpperCase() });
-    if (!schools || schools.length === 0) {
-      setSchoolError("School code not found. Please check with your school administrator.");
-      return;
+    try {
+      const schools = await secureEntity("School").filter({ school_code: schoolCode.trim().toUpperCase() });
+      if (!schools || schools.length === 0) {
+        setSchoolError("School code not found. Please check with your school administrator.");
+        return;
+      }
+      setSchoolError("");
+      const code = schoolCode.trim().toUpperCase();
+      setAnswers(prev => ({ ...prev, school_code: code, school_id: schools[0].id }));
+      setStep(1); // go to name step — redirect happens after onboarding is complete
+    } catch (e) {
+      console.error("School code lookup failed:", e);
+      setSchoolError("Couldn't check that code right now. Please try again in a moment.");
     }
-    setSchoolError("");
-    const code = schoolCode.trim().toUpperCase();
-    setAnswers(prev => ({ ...prev, school_code: code, school_id: schools[0].id }));
-    setStep(1); // go to name step — redirect happens after onboarding is complete
   };
 
   const handleAnswerChange = (key, value) => {
@@ -302,70 +308,78 @@ export default function OnboardingPage() {
   };
 
   const saveProfile = async () => {
+    if (saving) return;
     setSaving(true);
+    setSaveError("");
     const email = authEmail.trim();
 
-    // Check if the school requires anonymization and generate an anonymous ID
-    let anonymousId = null;
-    if (answers.school_code) {
-      const schoolsForAnon = await secureEntity("School").filter({ school_code: answers.school_code });
-      const targetSchool = schoolsForAnon[0];
-      if (targetSchool?.anonymize_students) {
-        // Generate a unique anonymous ID
-        const allProfiles = await secureEntity("StudentProfile").filter({ school_code: answers.school_code });
-        const existingIndexes = allProfiles
-          .filter(p => p.anonymous_id)
-          .map(p => { const m = p.anonymous_id.match(/-(\d{4})-/); return m ? parseInt(m[1]) : 0; });
-        const nextIdx = existingIndexes.length > 0 ? Math.max(...existingIndexes) + 1 : 1;
-        const prefix = answers.school_code.substring(0, 4).toUpperCase();
-        const num = String(nextIdx).padStart(4, "0");
-        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-        const suffix = chars[Math.floor(Math.random() * chars.length)] + chars[Math.floor(Math.random() * chars.length)];
-        anonymousId = `${prefix}-${num}-${suffix}`;
+    try {
+      // Check if the school requires anonymization and generate an anonymous ID
+      let anonymousId = null;
+      if (answers.school_code) {
+        const schoolsForAnon = await secureEntity("School").filter({ school_code: answers.school_code });
+        const targetSchool = schoolsForAnon[0];
+        if (targetSchool?.anonymize_students) {
+          // Generate a unique anonymous ID
+          const allProfiles = await secureEntity("StudentProfile").filter({ school_code: answers.school_code });
+          const existingIndexes = allProfiles
+            .filter(p => p.anonymous_id)
+            .map(p => { const m = p.anonymous_id.match(/-(\d{4})-/); return m ? parseInt(m[1]) : 0; });
+          const nextIdx = existingIndexes.length > 0 ? Math.max(...existingIndexes) + 1 : 1;
+          const prefix = answers.school_code.substring(0, 4).toUpperCase();
+          const num = String(nextIdx).padStart(4, "0");
+          const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+          const suffix = chars[Math.floor(Math.random() * chars.length)] + chars[Math.floor(Math.random() * chars.length)];
+          anonymousId = `${prefix}-${num}-${suffix}`;
+        }
       }
-    }
 
-    // Password is already hashed server-side by authenticateUser — only save preferences here
-    const profileData = {
-      user_name: authMode === "signup" ? authName.trim() : existingProfile?.user_name || firstName.trim(),
-      school_code: answers.school_code,
-      school_id: answers.school_id,
-      ...(anonymousId ? { anonymous_id: anonymousId } : {}),
-      onboarding_completed: true,
-      study_time: answers.study_time,
-      break_frequency: answers.break_frequency,
-      session_length: answers.session_length,
-      deadline_approach: answers.deadline_approach,
-      study_environment: answers.study_environment,
-      easiest_subjects: answers.easiest_subjects,
-      hardest_subjects: answers.hardest_subjects,
-      difficult_approach: answers.difficult_approach,
-      learning_style: answers.learning_style,
-      subject_balance: answers.subject_balance
-    };
+      // Password is already hashed server-side by authenticateUser — only save preferences here
+      const profileData = {
+        user_name: authMode === "signup" ? authName.trim() : existingProfile?.user_name || firstName.trim(),
+        school_code: answers.school_code,
+        school_id: answers.school_id,
+        ...(anonymousId ? { anonymous_id: anonymousId } : {}),
+        onboarding_completed: true,
+        study_time: answers.study_time,
+        break_frequency: answers.break_frequency,
+        session_length: answers.session_length,
+        deadline_approach: answers.deadline_approach,
+        study_environment: answers.study_environment,
+        easiest_subjects: answers.easiest_subjects,
+        hardest_subjects: answers.hardest_subjects,
+        difficult_approach: answers.difficult_approach,
+        learning_style: answers.learning_style,
+        subject_balance: answers.subject_balance
+      };
 
-    if (existingProfile) {
-      await secureEntity("StudentProfile").update(existingProfile.id, profileData);
-    } else {
-      // Profile was already created during signup, find and update it
-      const profiles = await secureEntity("StudentProfile").filter({ user_email: email });
-      if (profiles[0]) {
-        await secureEntity("StudentProfile").update(profiles[0].id, profileData);
+      if (existingProfile) {
+        await secureEntity("StudentProfile").update(existingProfile.id, profileData);
+      } else {
+        // Profile was already created during signup, find and update it
+        const profiles = await secureEntity("StudentProfile").filter({ user_email: email });
+        if (profiles[0]) {
+          await secureEntity("StudentProfile").update(profiles[0].id, profileData);
+        }
       }
-    }
-    setSaving(false);
 
-    // After onboarding, redirect to school subdomain if on gradeguard.org
-    const host = window.location.hostname;
-    const schoolCodeFinal = answers.school_code;
-    if (schoolCodeFinal && (host === "gradeguard.org" || host === "www.gradeguard.org")) {
-      const storedToken = localStorage.getItem("gg_auth_token");
-      let redirectUrl = `https://${schoolCodeFinal.toLowerCase()}.gradeguard.org/Dashboard?gg_login=${encodeURIComponent(email)}`;
-      if (storedToken) redirectUrl += `&gg_token=${encodeURIComponent(storedToken)}`;
-      window.location.href = redirectUrl;
-      return;
+      // After onboarding, redirect to school subdomain if on gradeguard.org
+      const host = window.location.hostname;
+      const schoolCodeFinal = answers.school_code;
+      if (schoolCodeFinal && (host === "gradeguard.org" || host === "www.gradeguard.org")) {
+        const storedToken = localStorage.getItem("gg_auth_token");
+        let redirectUrl = `https://${schoolCodeFinal.toLowerCase()}.gradeguard.org/Dashboard?gg_login=${encodeURIComponent(email)}`;
+        if (storedToken) redirectUrl += `&gg_token=${encodeURIComponent(storedToken)}`;
+        window.location.href = redirectUrl;
+        return;
+      }
+      navigate(createPageUrl("Dashboard"));
+    } catch (e) {
+      console.error("Failed to save onboarding profile:", e);
+      setSaveError(e?.message || "Couldn't finish setting up your account. Please try again.");
+    } finally {
+      setSaving(false);
     }
-    navigate(createPageUrl("Dashboard"));
   };
 
   return (
@@ -593,13 +607,18 @@ export default function OnboardingPage() {
                 Next <ArrowRight className="w-4 h-4" />
               </Button>
             ) : (
-              <Button
-                disabled={!canProceed() || saving}
-                onClick={saveProfile}
-                className="gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white"
-              >
-                {saving ? 'Setting up...' : 'Finish Setup'} {!saving && <ArrowRight className="w-4 h-4" />}
-              </Button>
+              <div className="flex flex-col items-end gap-2">
+                {saveError && (
+                  <p className="text-xs text-red-600 max-w-xs text-right">{saveError}</p>
+                )}
+                <Button
+                  disabled={!canProceed() || saving}
+                  onClick={saveProfile}
+                  className="gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white"
+                >
+                  {saving ? 'Setting up...' : 'Finish Setup'} {!saving && <ArrowRight className="w-4 h-4" />}
+                </Button>
+              </div>
             )}
           </div>
         )}
