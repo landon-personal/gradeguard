@@ -6,6 +6,43 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-26 (late-night shift, ~22:05–23:10 UTC)
+
+Pushed straight to `landon-personal/gradeguardnewsync` on branch `claude/peaceful-gates-JZqEd`.
+
+### Added (web) — new student-facing features
+- **Pomodoro Focus Timer page** — new `/FocusTimer` route with 25/5/15-min modes, SVG countdown ring, space-bar toggle, Web Audio API ping on completion, per-day session dots, and auto-break suggestion after every 4 pomodoros. Assignment picker pre-selects via `?assignmentId=` URL param. Appears in the student nav under "Focus Timer".
+- **TestCard → Focus Timer deep-link** — "Study session" link on every upcoming test (just like assignments). FocusTimer gains `?testId=` param support and shows "Study: {test name}" in the focus pill and session completion toast.
+- **ActivityCalendar heatmap on Achievements page** — 15-week GitHub-style activity grid using date-fns; color-coded by number of assignments completed per day (0→gray, 1→light indigo, 2→medium, 3+→dark). Today's cell is outlined. Hover shows date tooltip.
+- **Dashboard "Today's Wins" section** — shows up to 5 assignments completed today, only rendered when `completedToday.length > 0`.
+- **Dashboard clickable stats** — "Pending" stat navigates to Assignments page; "Overdue" stat (when > 0) navigates to `Assignments?filter=overdue`.
+- **Assignments `?filter=overdue` URL param** — when present, pre-selects "Pending" filter + "Due Soon" sort so the overdue list is immediately visible.
+- **Focus Timer links on AssignmentCard and TodoItemCard** — non-completed assignments have a "Start focus session" link, todo items have a "Focus" link, both deep-linking via React Router `<Link>` to avoid full-page reloads.
+
+### Fixed (web) — async error handling
+- **StudyAssistant `handleFileAttach`** — `UploadFile` had no try/catch; a failed upload left `uploadingFile=true` permanently.
+- **Friends friend-code init effect** — `secureEntity.update` had no `.catch()`; a transient failure left `friendCodeReady=false` forever, causing an infinite retry loop.
+- **RoomView initial load effect** — both `.filter()` calls had no `.catch()`, causing unhandled rejections on network failure.
+- **StudyRooms `handleCreate` + `handleJoin`** — wrapped in try/catch/finally.
+- **StudyRooms `joinFromInvite` effect** — added `.catch()` to prevent unhandled rejection.
+- **StudyRooms `onLeave` handler** — wrapped in try/catch.
+- **RoomView `handleStartQuiz` + `handleSubmit`** — try/catch/finally.
+- **SmartScanModal `handleFile` + `handleClarifySubmit`** — try/catch/finally.
+- **AssignmentForm + TestForm `handleAISuggest`** — try/catch/finally.
+- **AssignmentAttachment `handleFileChange` + `handleRemove`** — try/catch/finally.
+- **useNotifications effect** — added `.catch(() => {})` to prevent silent unhandled rejections.
+- **Assignments `handleStatusChange`** — wrapped `awardPoints` in try/catch (XP is non-critical; shouldn't block status change).
+- **StudyAssistant `handleQuizResults`** — wrapped `QuizResult.create` in try/catch.
+- **NotificationPermission + NotificationSettingsPanel** — wrapped `Notification.requestPermission()` in try/catch.
+- **MiniGames VocabBlast `generateTerm`** — try/catch/finally.
+- **Layout `handleDismissWhatsNew`** — silent catch on non-critical update.
+- **Dashboard `generateAIPlan` + `handleCompleteFromTodo`** — added catch blocks.
+
+### Fixed (web) — navigation
+- **TodoItemCard + AssignmentCard focus links** — were using `<a href>` (full-page reload in SPA); replaced with React Router `<Link to>`.
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
