@@ -44,6 +44,11 @@ The new web canonical was seeded from a snapshot before several previous-shift f
 - **NotificationSettingsPanel `requestPerm`** — explicit guard for browsers without the Notifications API and try/catch around `Notification.requestPermission`.
 - **useNotifications `sendPush` + `checkAndNotify` last_checked write** — defensive try/catch around the Notification constructor (some embedded webviews accept the permission check but throw on construct) and the bookkeeping `secureEntity` update.
 
+### Fixed (web) — additional reliability
+- **StudyAssistant `handleFileAttach`** — file-attach upload had no try/catch; a failed UploadFile left the attach button stuck on a spinner with no toast. Wrapped + double-attach guard.
+- **BadgeUnlockToast nested fade-out timer** — the inner `setTimeout(onDone, 450)` for the exit animation wasn't cleared on unmount. Stored in a ref and cleared in the cleanup.
+- **InviteLinkButton "Copied" timer** — same unmount/re-arm pattern as FriendChatPanel — centralized the timer in a ref with armDoneTimer() and a useEffect cleanup.
+
 ### Polish (web)
 - **SmartTodoList** — the "Generated Xm ago" stamp on the dashboard's AI plan card was computed at render time and never re-rendered. Added a 60s tick so the relative time stays accurate without a full re-fetch.
 - **Dashboard Refresh button** — added `aria-label` + `title` so the icon-only variant on small screens isn't a screen-reader dead spot.
