@@ -197,7 +197,8 @@ export default function FriendsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assignments", userEmail] });
       toast.success("Assignment copied to your profile.");
-    }
+    },
+    onError: (error) => toast.error(error?.message || "Couldn't copy this assignment. Please try again.")
   });
 
   const copyTestMutation = useMutation({
@@ -214,7 +215,8 @@ export default function FriendsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tests", userEmail] });
       toast.success("Test copied to your profile.");
-    }
+    },
+    onError: (error) => toast.error(error?.message || "Couldn't copy this test. Please try again.")
   });
 
   const sendMessageMutation = useMutation({
