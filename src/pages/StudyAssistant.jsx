@@ -265,12 +265,14 @@ export default function StudyAssistantPage() {
   };
 
   const generateQuiz = async (test) => {
+    if (loading) return;
     setLoading(true);
     setStudyTool(null);
     setMessages(prev => [...prev,
       { role: "user", content: `Quiz me on ${test.name}` },
       { role: "assistant", content: `Creating a practice quiz for **${test.name}** (${test.subject})... 📝` }
     ]);
+    try {
     const result = await runTrackedStudyAssistantCall({
       prompt: `Create a 8-question multiple choice practice quiz for a student studying for a ${test.subject} test called "${test.name}".
       Topics covered: ${test.topics || test.subject}
@@ -299,11 +301,15 @@ export default function StudyAssistantPage() {
     });
     if (!result?.questions?.length) {
       setMessages(prev => [...prev, { role: "assistant", content: "Sorry, I had trouble generating the quiz. Please try again!" }]);
-      setLoading(false);
       return;
     }
     setStudyTool({ type: "quiz", data: result.questions, testName: test.name, subject: test.subject, difficulty: test.difficulty });
-    setLoading(false);
+    } catch (e) {
+      console.error("Failed to generate quiz:", e);
+      setMessages(prev => [...prev, { role: "assistant", content: "Sorry, something went wrong generating the quiz. Please try again." }]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -346,8 +352,9 @@ export default function StudyAssistantPage() {
     // Generate AI follow-up message based on performance
     if (isPremium) {
       setLoading(true);
-      const result2 = await base44.integrations.Core.InvokeLLM({
-        prompt: `A student just completed a practice quiz on "${testName}" (${subject}) and scored ${score_pct}%.
+      try {
+        const result2 = await base44.integrations.Core.InvokeLLM({
+          prompt: `A student just completed a practice quiz on "${testName}" (${subject}) and scored ${score_pct}%.
 ${wrongQs.length > 0 ? `They got these questions wrong:\n${wrongQs.map(q => `- ${q}`).join('\n')}` : 'They got everything correct!'}
 
 Student profile:
@@ -361,13 +368,18 @@ Write a short, encouraging Socratic response (2-4 sentences) that:
 3. Suggests the next best study action based on their score and upcoming test
 
 Keep it warm, specific, and actionable.`,
-        response_json_schema: {
-          type: "object",
-          properties: { reply: { type: "string" } }
-        }
-      });
-      setMessages(prev => [...prev, { role: "assistant", content: result2.reply }]);
-      setLoading(false);
+          response_json_schema: {
+            type: "object",
+            properties: { reply: { type: "string" } }
+          }
+        });
+        setMessages(prev => [...prev, { role: "assistant", content: result2.reply }]);
+      } catch (e) {
+        console.error("Quiz follow-up message failed:", e);
+        // Silent fail — quiz results were already saved, just no AI feedback
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -470,37 +482,43 @@ This school has Premium. You are a PERSONAL AI TUTOR who knows this student well
 Use this information to personalize every response. Reference their strengths and struggles naturally.${perfContext}
 When generating practice problems or quizzes, adapt difficulty based on their performance history — make harder problems for strong subjects and scaffold more for weak ones.` : "";
 
-    const result = await runTrackedStudyAssistantCall({
-      prompt: `${SYSTEM_PROMPT}${premiumContext}${allAssignmentsContext}${testsContext}${fileInstruction}${linkInstruction}\n\nConversation history:\n${historyForLLM}\n\nRespond as the assistant now.`,
-      add_context_from_internet: !!linkRef,
-      file_urls: fileRef ? [fileRef.url] : undefined,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          reply: { type: "string" },
-          action: {
-            type: "object",
-            properties: {
-              type: { type: "string" },
-              assignment_id: { type: "string" },
-              status: { type: "string" },
-              name: { type: "string" },
-              subject: { type: "string" },
-              due_date: { type: "string" },
-              difficulty: { type: "string" }
+    try {
+      const result = await runTrackedStudyAssistantCall({
+        prompt: `${SYSTEM_PROMPT}${premiumContext}${allAssignmentsContext}${testsContext}${fileInstruction}${linkInstruction}\n\nConversation history:\n${historyForLLM}\n\nRespond as the assistant now.`,
+        add_context_from_internet: !!linkRef,
+        file_urls: fileRef ? [fileRef.url] : undefined,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            reply: { type: "string" },
+            action: {
+              type: "object",
+              properties: {
+                type: { type: "string" },
+                assignment_id: { type: "string" },
+                status: { type: "string" },
+                name: { type: "string" },
+                subject: { type: "string" },
+                due_date: { type: "string" },
+                difficulty: { type: "string" }
+              }
             }
           }
         }
-      }
-    });
+      });
 
-    const actionFeedback = await handleAction(result.action);
-    const finalReply = actionFeedback ? `${result.reply}\n\n${actionFeedback}` : result.reply;
+      const actionFeedback = await handleAction(result.action);
+      const finalReply = actionFeedback ? `${result.reply}\n\n${actionFeedback}` : result.reply;
 
-    setMessages(prev => [...prev, { role: "assistant", content: finalReply }]);
-    setLoading(false);
-    setAiStatuses(null);
-    setAiStageIndex(0);
+      setMessages(prev => [...prev, { role: "assistant", content: finalReply }]);
+    } catch (e) {
+      console.error("Study assistant message failed:", e);
+      setMessages(prev => [...prev, { role: "assistant", content: "Sorry, I had trouble responding. Please try again." }]);
+    } finally {
+      setLoading(false);
+      setAiStatuses(null);
+      setAiStageIndex(0);
+    }
   };
 
   const handleLinkAttach = () => {
