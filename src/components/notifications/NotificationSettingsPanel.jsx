@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { secureEntity } from "@/lib/secureEntities";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 
 const DAY_OPTIONS = [
   { label: "Same day", value: 0 },
@@ -34,6 +35,7 @@ export default function NotificationSettingsPanel({ settings, userEmail, onClose
   };
 
   const save = async () => {
+    if (saving) return;
     setSaving(true);
     const data = {
       user_email: userEmail,
@@ -42,14 +44,20 @@ export default function NotificationSettingsPanel({ settings, userEmail, onClose
       notify_assignments: notifyAssignments,
       notify_tests: notifyTests,
     };
-    if (settings?.id) {
-      await secureEntity("NotificationSettings").update(settings.id, data);
-    } else {
-      await secureEntity("NotificationSettings").create(data);
+    try {
+      if (settings?.id) {
+        await secureEntity("NotificationSettings").update(settings.id, data);
+      } else {
+        await secureEntity("NotificationSettings").create(data);
+      }
+      queryClient.invalidateQueries(['notification-settings', userEmail]);
+      onClose();
+    } catch (e) {
+      console.error("Failed to save notification settings:", e);
+      toast.error(e?.message || "Couldn't save your notification settings. Please try again.");
+    } finally {
+      setSaving(false);
     }
-    queryClient.invalidateQueries(['notification-settings', userEmail]);
-    setSaving(false);
-    onClose();
   };
 
   return (
