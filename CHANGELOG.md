@@ -6,6 +6,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-26 (late-evening shift)
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Fixed (web)
+- **Dashboard `generateAIPlan`** — wrapped the LLM call in try/catch (was try/finally only). On failure the error bubbled up uncaught, AI job polling kept ticking, and the empty state told the user to "tap refresh" while the refresh button was hidden until a `todoList` existed. Added `aiPlanError` state, a friendly toast, and a "Try again" button on the SmartTodoList empty/error path.
+  - **Why:** silent failure was the worst case — a school admin demo loading on flaky wifi would just see a blank study plan with no way to recover short of reloading the page.
+- **Dashboard `handleCompleteFromTodo`** — applied an optimistic UI + react-query cache update, then `await secureEntity().update()` with no error handling. A failed save left the item visually completed but not persisted, so the next refresh resurrected it. Now snapshots prior state, reverts cache + plan + signatures on throw, and toasts. XP award is treated as non-fatal (assignment is already saved).
+  - **Why:** students were silently losing "marked done" state when the network blipped during a complete tap.
+- **MoodCheckIn** — `JSON.parse` of localStorage was unguarded. A corrupt entry from an older build would re-throw on every render. Wrapped in try/catch and clear the bad key.
+  - **Why:** defensive cleanup on a path that's been a rare source of console noise.
+- **FriendChatPanel cooldown timer** — `setTimeout` id was never captured, so unmount during cooldown leaked a state-after-unmount warning. Stored in a ref and cleared on unmount and re-arm.
+  - **Why:** stops a small console-noise leak.
+- **FriendCodeCard `copyCode`** — fired `toast.success("Friend code copied!")` synchronously without awaiting `navigator.clipboard.writeText`. A denied or unavailable Clipboard API silently lied to the user. Now awaits, and toasts an error with a hint to long-press the code.
+- **InviteLinkButton `handleInvite`** — same: `await navigator.clipboard.writeText(url)` had no catch in the fall-through path when `navigator.share` was absent. Now toasts on failure.
+  - **Why:** clipboard access can fail on http origins, browsers without permission, or when no user gesture is registered. Students get a clear hint instead of fake success.
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
