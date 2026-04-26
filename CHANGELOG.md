@@ -24,6 +24,9 @@ Pushed to `landon-personal/gradeguardnewsync` (auto-syncs to gradeguard.org). No
 - **Keyboard shortcut hints in Assignments + Tests headers** — `N` / `Esc` badges now visible in the page header gradient on desktop. The shortcuts existed but were completely hidden.  
   **Why:** Discoverability: students who didn't know about `N` to open the form were clicking the button every time.
 
+- **Today's Wins on Dashboard** — A new card appears on the Dashboard whenever the student has completed items today. Shows up to 5 assignment/test names with subject and grade (if recorded). Disappears on days with no completions.  
+  **Why:** Students needed a quick "what did I get done?" glance without leaving the dashboard. Also surfaces grades recorded via the Grade Tracker inline.
+
 ### Fixed (web)
 
 - **`Dashboard.handleCompleteFromTodo`** — awaited DB writes (test/assignment status update) had no try/catch; a failed write removed the todo item silently. Now: catch reverts optimistic cache + `toast.error`. `awardPoints` failure no longer blocks status change.
