@@ -18,6 +18,9 @@ Pushed to `landon-personal/gradeguardnewsync` (auto-syncs to gradeguard.org). No
 - **Grade Tracker — Tests page** — Same inline grade entry ("Add score") on all Past/Completed tests. GradeStats bar also appears above the Past section, pulling from test scores separately.  
   **Why:** Tests are the highest-stakes items; students need to track their performance to adjust study habits.
 
+- **Essay Outliner in Study Assistant** — New "Writing Tools" section on the Study Assistant home screen. Student enters a topic, picks essay type (Argumentative / Expository / Analytical / Compare & Contrast / Narrative) and body paragraph count (2–5). AI returns hook, thesis, per-paragraph topic sentences + evidence prompts, and conclusion — displayed in a collapsible accordion with one-click copy to clipboard.  
+  **Why:** Essay planning is one of the most common student struggles. This gives them a structured head start before writing.
+
 - **Keyboard shortcut hints in Assignments + Tests headers** — `N` / `Esc` badges now visible in the page header gradient on desktop. The shortcuts existed but were completely hidden.  
   **Why:** Discoverability: students who didn't know about `N` to open the form were clicking the button every time.
 
