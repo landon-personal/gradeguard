@@ -2,7 +2,7 @@
   "name": "gradeguard",
   "productName": "GradeGuard",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -31,8 +31,7 @@
       "target": [
         { "target": "dmg", "arch": ["x64", "arm64"] }
       ],
-      "category": "public.app-category.education",
-      "identity": null
+      "category": "public.app-category.education"
     },
     "win": {
       "target": [
