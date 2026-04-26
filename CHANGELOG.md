@@ -6,6 +6,43 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-26 (late-night shift)
+
+Pushed to `landon-personal/gradeguardnewsync` (auto-syncs to gradeguard.org). No new desktop installer.
+
+### Added (web)
+
+- **Grade Tracker — Assignments page** — Students can now record a grade (letter like `A+`, `B-`, or percentage like `92%`) directly on any completed AssignmentCard. An inline "Add grade" / "Edit grade" link expands an animated input; grades persist to the Assignment entity with optimistic UI update. A `GradeStats` bar above the Completed section shows per-subject color-coded letter grade averages (e.g. Math: **A** 94% · 3 graded).  
+  **Why:** There was no way to close the loop from "I submitted the assignment" to "how did I do?". Grade tracking is one of the most-requested features in student study apps.
+
+- **Grade Tracker — Tests page** — Same inline grade entry ("Add score") on all Past/Completed tests. GradeStats bar also appears above the Past section, pulling from test scores separately.  
+  **Why:** Tests are the highest-stakes items; students need to track their performance to adjust study habits.
+
+- **Keyboard shortcut hints in Assignments + Tests headers** — `N` / `Esc` badges now visible in the page header gradient on desktop. The shortcuts existed but were completely hidden.  
+  **Why:** Discoverability: students who didn't know about `N` to open the form were clicking the button every time.
+
+### Fixed (web)
+
+- **`Dashboard.handleCompleteFromTodo`** — awaited DB writes (test/assignment status update) had no try/catch; a failed write removed the todo item silently. Now: catch reverts optimistic cache + `toast.error`. `awardPoints` failure no longer blocks status change.
+- **`RoomView.handleStartQuiz`** — LLM call had no error handling; stuck on "Generating…" forever on failure. Now try/catch/finally + `if (generating) return` double-submit guard.
+- **`RoomView.handleSubmit`** — `setSubmitted(true)` before the DB write; a failed create locked the student in "submitted" state with no score saved. Now `submitted` rolls back on failure.
+- **`SmartScanModal.handleFile`** — upload + LLM scan path had no try/catch; modal was stuck on "scanning" step if upload or LLM failed. Now resets to upload step with toast.
+- **`SmartScanModal.handleClarifySubmit`** — date-parse LLM call had no catch; loadingClarify could get stuck. Now try/catch/finally.
+- **`AssignmentForm.handleAISuggest`** + **`TestForm.handleAISuggest`** — both had no error handling; aiLoading stuck on failure. Now try/catch/finally + `if (aiLoading) return` double-submit guard.
+- **`TodoItemCard.handleComplete`** — `completing` state never cleared on error; button permanently frozen. Now try/catch resets completing + toast; `if (completing) return` guard.
+- **`MiniGames VocabBlast generateTerm`** — `InvokeLLM` await outside try/catch; `setLoading(false)` never reached on error. Now try/catch/finally + sets `gameOver=true` on failure.
+- **`StudyRooms.handleCreate` + `handleJoin`** — no error handling; spinners stuck on failure. Now try/catch/finally + double-submit guards.
+- **`StudyRooms.joinFromInvite` effect** — unhandled rejection; now `.catch(toast.error)`.
+- **`StudyRooms.onLeave`** — DB update failure blocked leaving; user now navigated away first, update is best-effort.
+- **`AssignmentAttachment.handleFileChange`** — upload + DB write had no try/catch; uploading state stuck on failure. Now try/catch/finally.
+- **`AssignmentAttachment.handleRemove`** — removal failure was silent; now toast.error + setRemoving in finally.
+- **`Friends` friend-code auto-assign effect** — `secureEntity.update` failure kept `friendCodeReady=false` causing infinite retry loop. Now `.catch()` sets `friendCodeReady=true` to stop the loop.
+- **`useNotifications.checkAndNotify`** — `secureEntity.update` for `last_checked` had no try/catch; caused unhandled rejection. Now silent catch + `.catch(()=>{})` on call site.
+- **`NotificationPermission.requestPermission`** — `Notification.requestPermission()` can reject in some browsers; now wrapped in try/catch setting status to `"denied"`.
+- **`AnonymizationToggle.handleAnonymize`** — `setLoading(false)` was after the try/catch block, not in finally; a throw from the catch handler would have left loading stuck. Moved to finally.
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
