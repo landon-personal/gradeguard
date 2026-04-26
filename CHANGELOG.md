@@ -48,6 +48,7 @@ The new web canonical was seeded from a snapshot before several previous-shift f
 - **StudyAssistant `handleFileAttach`** — file-attach upload had no try/catch; a failed UploadFile left the attach button stuck on a spinner with no toast. Wrapped + double-attach guard.
 - **BadgeUnlockToast nested fade-out timer** — the inner `setTimeout(onDone, 450)` for the exit animation wasn't cleared on unmount. Stored in a ref and cleared in the cleanup.
 - **InviteLinkButton "Copied" timer** — same unmount/re-arm pattern as FriendChatPanel — centralized the timer in a ref with armDoneTimer() and a useEffect cleanup.
+- **Tests `handleMarkDone`** — optimistic completion update had no revert on save failure (parity with the Dashboard `handleCompleteFromTodo` fix earlier this shift). Now snapshots the cache and restores it on mutation error.
 
 ### Polish (web)
 - **SmartTodoList** — the "Generated Xm ago" stamp on the dashboard's AI plan card was computed at render time and never re-rendered. Added a 60s tick so the relative time stays accurate without a full re-fetch.
