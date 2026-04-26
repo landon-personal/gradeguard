@@ -21,29 +21,35 @@ export const LightningRound = ({ tests, onClose }) => {
         return;
       }
 
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `Generate 5 quick trivia questions about these upcoming tests: ${testsList}
-        For each question, provide 4 multiple choice options.
-        Format as JSON: [{"question":"?","options":["A","B","C","D"],"answer":0}]`,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            questions: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  question: { type: "string" },
-                  options: { type: "array", items: { type: "string" } },
-                  answer: { type: "number" }
+      try {
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt: `Generate 5 quick trivia questions about these upcoming tests: ${testsList}
+          For each question, provide 4 multiple choice options.
+          Format as JSON: [{"question":"?","options":["A","B","C","D"],"answer":0}]`,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              questions: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    question: { type: "string" },
+                    options: { type: "array", items: { type: "string" } },
+                    answer: { type: "number" }
+                  }
                 }
               }
             }
           }
-        }
-      });
-      setQuestions(result.questions || []);
-      setLoading(false);
+        });
+        setQuestions(result.questions || []);
+      } catch (e) {
+        console.error("MiniGames trivia generation failed:", e);
+        setGameOver(true);
+      } finally {
+        setLoading(false);
+      }
     };
 
     generateQuestions();
@@ -134,34 +140,39 @@ export const MemoryMatch = ({ tests, onClose }) => {
         return;
       }
 
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `Generate 6 pairs of related study concepts for these tests: ${testsList}
-        Each pair should be (term, definition) or (concept, example).
-        Format as JSON: [{"term":"X","definition":"Y"},...]`,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            pairs: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  term: { type: "string" },
-                  definition: { type: "string" }
+      try {
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt: `Generate 6 pairs of related study concepts for these tests: ${testsList}
+          Each pair should be (term, definition) or (concept, example).
+          Format as JSON: [{"term":"X","definition":"Y"},...]`,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              pairs: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    term: { type: "string" },
+                    definition: { type: "string" }
+                  }
                 }
               }
             }
           }
-        }
-      });
+        });
 
-      const shuffled = [];
-      (result.pairs || []).forEach(p => {
-        shuffled.push({ id: Math.random(), text: p.term, type: 'term', pair: shuffled.length });
-        shuffled.push({ id: Math.random(), text: p.definition, type: 'def', pair: shuffled.length - 1 });
-      });
-      setPairs(shuffled.sort(() => Math.random() - 0.5));
-      setLoading(false);
+        const shuffled = [];
+        (result.pairs || []).forEach(p => {
+          shuffled.push({ id: Math.random(), text: p.term, type: 'term', pair: shuffled.length });
+          shuffled.push({ id: Math.random(), text: p.definition, type: 'def', pair: shuffled.length - 1 });
+        });
+        setPairs(shuffled.sort(() => Math.random() - 0.5));
+      } catch (e) {
+        console.error("MiniGames memory match generation failed:", e);
+      } finally {
+        setLoading(false);
+      }
     };
 
     generatePairs();
@@ -254,21 +265,27 @@ export const TermGuesser = ({ tests, onClose }) => {
         return;
       }
 
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `Pick ONE important vocabulary term from these tests: ${testsList}
-        Provide the term and a helpful hint (without giving it away).
-        Format: {"term":"WORD","hint":"clue"}`,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            term: { type: "string" },
-            hint: { type: "string" }
+      try {
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt: `Pick ONE important vocabulary term from these tests: ${testsList}
+          Provide the term and a helpful hint (without giving it away).
+          Format: {"term":"WORD","hint":"clue"}`,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              term: { type: "string" },
+              hint: { type: "string" }
+            }
           }
-        }
-      });
-      setTerm(result.term || "");
-      setHint(result.hint || "");
-      setLoading(false);
+        });
+        setTerm(result.term || "");
+        setHint(result.hint || "");
+      } catch (e) {
+        console.error("MiniGames vocab term generation failed:", e);
+        setGameOver(true);
+      } finally {
+        setLoading(false);
+      }
     };
 
     generateTerm();
