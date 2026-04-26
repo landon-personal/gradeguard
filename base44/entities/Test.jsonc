@@ -1,0 +1,59 @@
+{
+  "name": "Test",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "Student's email address"
+    },
+    "name": {
+      "type": "string",
+      "description": "Test name"
+    },
+    "subject": {
+      "type": "string",
+      "description": "Subject/course name"
+    },
+    "test_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date the test takes place"
+    },
+    "topics": {
+      "type": "string",
+      "description": "What the test covers"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "easy",
+        "medium",
+        "hard"
+      ],
+      "description": "Expected difficulty level"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "upcoming",
+        "completed"
+      ],
+      "default": "upcoming"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes"
+    },
+    "share_with_friends": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this test is visible to friends"
+    }
+  },
+  "required": [
+    "user_email",
+    "name",
+    "subject",
+    "test_date"
+  ]
+}

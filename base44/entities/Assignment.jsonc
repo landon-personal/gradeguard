@@ -1,0 +1,102 @@
+{
+  "name": "Assignment",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "Student's email address"
+    },
+    "name": {
+      "type": "string",
+      "description": "Assignment name"
+    },
+    "subject": {
+      "type": "string",
+      "description": "Subject/course name"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When the assignment is due"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "easy",
+        "medium",
+        "hard"
+      ],
+      "description": "Difficulty level"
+    },
+    "weight": {
+      "type": "string",
+      "enum": [
+        "prepare",
+        "rehearse",
+        "perform",
+        "unknown",
+        "not_a_grade"
+      ],
+      "description": "Assignment weight stage"
+    },
+    "time_estimate": {
+      "type": "number",
+      "description": "Estimated completion time in minutes"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "completed"
+      ],
+      "default": "pending"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes about the assignment"
+    },
+    "is_recurring": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this is a recurring assignment"
+    },
+    "recurrence_frequency": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "biweekly",
+        "monthly"
+      ],
+      "description": "How often the assignment recurs"
+    },
+    "recurrence_parent_id": {
+      "type": "string",
+      "description": "ID of the original recurring assignment"
+    },
+    "xp_awarded": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether XP has already been awarded for completing this assignment"
+    },
+    "attachment_url": {
+      "type": "string",
+      "description": "URL of uploaded syllabus or study notes file"
+    },
+    "attachment_name": {
+      "type": "string",
+      "description": "Original filename of the attachment"
+    },
+    "share_with_friends": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this assignment is visible to friends"
+    }
+  },
+  "required": [
+    "user_email",
+    "name",
+    "due_date"
+  ]
+}

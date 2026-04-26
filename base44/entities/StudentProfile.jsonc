@@ -1,0 +1,138 @@
+{
+  "name": "StudentProfile",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "Student's email address"
+    },
+    "user_password": {
+      "type": "string",
+      "description": "Student's password"
+    },
+    "user_name": {
+      "type": "string",
+      "description": "Student's full name"
+    },
+    "anonymous_id": {
+      "type": "string",
+      "description": "Anonymous identifier used in place of real name/email for privacy-compliant schools"
+    },
+    "friend_code": {
+      "type": "string",
+      "description": "Unique friend code students can share"
+    },
+    "is_school_admin": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this user is a school administrator"
+    },
+    "school_code": {
+      "type": "string",
+      "description": "School code the student joined with"
+    },
+    "school_id": {
+      "type": "string",
+      "description": "Reference to the School entity"
+    },
+    "onboarding_completed": {
+      "type": "boolean",
+      "default": false
+    },
+    "study_time": {
+      "type": "string",
+      "enum": [
+        "morning",
+        "afternoon",
+        "evening",
+        "night"
+      ],
+      "description": "Preferred time to study"
+    },
+    "break_frequency": {
+      "type": "string",
+      "enum": [
+        "frequent",
+        "moderate",
+        "rarely"
+      ],
+      "description": "How often the student takes breaks"
+    },
+    "session_length": {
+      "type": "string",
+      "enum": [
+        "short",
+        "medium",
+        "long"
+      ],
+      "description": "Preferred study session length"
+    },
+    "deadline_approach": {
+      "type": "string",
+      "enum": [
+        "pressure",
+        "early",
+        "balanced"
+      ],
+      "description": "How student handles deadlines"
+    },
+    "study_environment": {
+      "type": "string",
+      "enum": [
+        "quiet",
+        "light_noise",
+        "music"
+      ],
+      "description": "Preferred study environment"
+    },
+    "easiest_subjects": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Subjects the student finds easiest"
+    },
+    "hardest_subjects": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Subjects the student finds most challenging"
+    },
+    "difficult_approach": {
+      "type": "string",
+      "enum": [
+        "tackle_first",
+        "save_last",
+        "break_chunks"
+      ],
+      "description": "How student approaches difficult assignments"
+    },
+    "learning_style": {
+      "type": "string",
+      "enum": [
+        "deep",
+        "surface",
+        "balanced"
+      ],
+      "description": "Student's learning style preference"
+    },
+    "subject_balance": {
+      "type": "string",
+      "enum": [
+        "one_at_a_time",
+        "rotate",
+        "priority_first"
+      ],
+      "description": "How student balances multiple subjects"
+    },
+    "has_seen_post_quiz_update": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the user has already seen the post-quiz-launch updates modal"
+    }
+  },
+  "required": [
+    "user_email"
+  ]
+}
