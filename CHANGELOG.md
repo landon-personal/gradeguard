@@ -6,6 +6,29 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-26 (late-evening shift)
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Fixed (web)
+- **MoodCheckIn — guarded `JSON.parse`** of the cached daily mood. If the localStorage entry was ever corrupted (manual edit, half-write, browser quota event), the unguarded parse threw inside the dashboard's mount effect and the whole dashboard failed to render. Now we try/catch and clear the bad entry. Also dropped 50+ trailing blank lines from the file.
+  - **Why:** Dashboard is the home page for every signed-in student. Any uncaught throw during mount = white screen of death.
+- **StudyRooms — try/catch/finally + double-submit guards on `handleCreate` and `handleJoin`.** Both handlers awaited Base44 calls with no error handling, so a failed `studyRoomLookup` or StudyRoom.create left the buttons stuck on "Creating…" / "Joining…" indefinitely with the error swallowed. Added a visible inline `createError` message too — previously the create flow had no error UI at all.
+  - **Why:** Quiz Battle is one of the more demo-able features for school admins. A "frozen create button" on a CMS demo would be the worst case.
+- **RoomView — try/catch/finally on `handleStartQuiz` and `handleSubmit`.** The host's "Generate Quiz" button hung on InvokeLLM failures. Worse, `handleSubmit` set `submitted=true` *before* the network call, so a failed `StudyRoomResult.create` locked the student into a "submitted" state with no score actually saved. Now `submitted` rolls back on failure and a "Retry submit" button appears with a clear error.
+  - **Why:** Lost quiz scores destroy trust in the leaderboard. This was a silent data-integrity bug.
+- **StudyAssistant `sendMessage` — added `if (loading) return` double-submit guard.** Sibling functions (`generateFlashcards`, `generateQuiz`) already had it; the main chat send did not, so spamming Enter fired multiple parallel LLM calls.
+- **Onboarding `handleAuth` — added double-submit guard.** Same pattern: rapid clicks on Sign-In could fan out multiple in-flight authentication calls.
+
+### Polish (web)
+- **Onboarding school-code step** — added a `Checking…` loading state on the Continue button + Enter-to-submit on the input. Previously the button gave zero feedback during the network round-trip, and Enter didn't work even though every other onboarding step supports it.
+  - **Why:** First impression of the app. A student on slow wifi would mash Continue or assume nothing happened.
+
+### Why
+Today's main repo migration left a few async handlers exposed that weren't part of the prior re-port pass. RoomView and StudyRooms were the standout misses — both touch features school admins are likely to demo, and both had silent-failure paths. Also closed a real data-integrity bug on quiz score submission (set-submitted-before-await race).
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
