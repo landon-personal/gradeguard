@@ -6,6 +6,40 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-27 (morning shift)
+
+Pushed to `landon-personal/gradeguardnewsync` (auto-syncs to gradeguard.org). No desktop installer changes.
+
+### Added (web)
+- **Grade/score tracking** — students can now log their actual grade on any completed assignment or test directly from the card (tap "Add score", type 0–100, press Enter). Shows as "92% (A)" with letter-grade color-coding. Score writes are optimistic-cached and persisted via `secureEntity.update`. (`AssignmentCard.jsx`, `TestCard.jsx`, `Tests.jsx`, `Assignments.jsx`)
+- **GradeAverageWidget on Dashboard** — new widget aggregates all scored items by subject, shows a colored progress bar + letter grade per subject, and an overall GPA (4.0 scale). Empty-state guides new users. (`GradeAverageWidget.jsx`, `Dashboard.jsx`)
+- **Grade average in page headers** — Assignments header shows "N pending · N completed · Avg: 87% (B)" when scored items exist; Tests header shows the same for past tests. No extra API calls — computed from already-fetched data. (`Assignments.jsx`, `Tests.jsx`)
+
+**Why:** Students were tracking assignments and tests but had no way to log or see their actual grades. This closes the loop: add assignment → complete it → log score → see grade trend on dashboard and in page headers.
+
+### Fixed (web)
+- **RoomView `handleStartQuiz`** — LLM call had no try/catch; failed generation left `generating=true` permanently (spinner never clears). Added try/catch/finally + double-submit guard.
+- **RoomView `handleSubmit`** — quiz result DB write had no error handling; failed write left `submitted=true` without recording the score. Now rolls back `submitted=false` on error.
+- **StudyRooms `handleCreate` + `handleJoin` + `joinFromInvite`** — all three had unwrapped awaits; any error left `creating`/`joining` stuck true. Added try/catch/finally + toast.error + double-submit guards.
+- **Dashboard `generateAIPlan`** — had try/finally but no catch; unhandled rejections could surface in the console. Added empty catch.
+- **MiniGames `TermGuesser`** — LLM call in `generateTerm()` had no error handling; failed call left loading=true forever. Now sets `gameOver=true` as fallback.
+- **SmartScanModal `handleFile` + `handleClarifySubmit`** — both AI/upload calls were unwrapped; errors left the modal stuck on "Scanning…" or with loading button permanently disabled. Added try/catch/finally; resets to upload step on error.
+- **AssignmentForm `handleAISuggest`** — LLM call was unwrapped; failure left `aiLoading=true` (button permanently disabled). Added try/catch/finally + toast.error + double-submit guard.
+- **TestForm `handleAISuggest`** — same pattern, same fix.
+- **StudyAssistant `handleFileAttach`** — file upload had no try/catch; network error left `uploadingFile=true` blocking the attach button.
+- **StudyRooms `joinFromInvite`** — both API calls were unwrapped; network error silently left the invite code in the URL with no feedback. Added try/catch with `setJoinError`.
+- **Assignments `handleStatusChange`** — the `awardPoints()` DB write had no try/catch; a failure propagated as an unhandled rejection. Wrapped with silent catch (assignment status change already succeeded).
+- **TodoItemCard `handleComplete`** — `onComplete()` had no try/catch; a failed DB write left `completing=true` (button permanently disabled). Added try/catch rollback + double-submit guard.
+- **AssignmentAttachment `handleFileChange` + `handleRemove`** — both were unwrapped; upload failure left `uploading=true` permanently, remove failure was silent. Added try/catch/finally + toast.error.
+- **InviteLinkButton `handleInvite`** — `navigator.clipboard.writeText` can throw in non-HTTPS or when clipboard permission is denied. Wrapped in try/catch.
+- **Layout `handleDismissWhatsNew`** — awaited a DB write before navigating, so a slow/failed write blocked navigation. Made fire-and-forget so modal dismissal and navigation always happen immediately.
+- **StudySchedule** — removed `console.error` that could log LLM context in devtools.
+
+### Security / Privacy (CMS compliance)
+- Removed 9 `console.error` calls from student-data-heavy flows (StudyAssistant, Onboarding, AIAssignmentChat, StudySchedule) that could leak LLM prompts/responses or profile data to browser devtools in production.
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
