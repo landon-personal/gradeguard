@@ -45,6 +45,28 @@ Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, a
 
   **Why:** The dashboard is the first screen after login. A single stale localStorage entry on one user's device should not be able to brick it.
 
+- **`useGamification.awardPoints` — bare awaits with no try/catch** — a failed `GamificationStats` create or update would bubble an unhandled rejection up through `Assignments.handleStatusChange` and `Dashboard.handleCompleteFromTodo`, skipping the XP toast, badge logic, and Chrome-extension nudge — and the whole assignment-complete UX would feel broken even though the assignment itself was already marked done. Now wraps the writes in try/catch and returns null on failure; callers already optional-chain the result, so they no-op gracefully.
+
+  **Why:** Better to silently drop XP for one completion than to break the rest of the post-complete flow (which is the dopamine moment that keeps students engaged).
+
+- **Off-by-one timezone bug on `due_date` / `test_date`** — 5 places parsed YYYY-MM-DD strings with `new Date(...)` (which interprets them as UTC midnight). In US timezones this shifted the perceived date by hours and silently changed meaning across the app:
+  - `SchoolAnalytics.jsx` — admin "overdue" count was off by a day in PST/EST, inflating school "at risk" totals
+  - `StudentList.jsx` — same buggy count fed the per-student "At Risk" badge (overdue ≥ 3)
+  - `useGamification.jsx` + `BadgeDefinitions.jsx` — students completing in the evening of the day BEFORE the due date were silently denied the early-completion XP bonus
+  - `PerformanceInsights.jsx` — daysLeft on assistant insight cards could be off by one
+
+  Switched all five to the existing `parseLocalDate` helper that the dashboard, notifications, and study schedule already use for exactly this reason.
+
+  **Why:** A creep-bug in date math like this slowly poisons trust in the gamification system and admin dashboard. Consistent local-time semantics across the codebase.
+
+- **CMSCompliance document download + clipboard** — `downloadDoc` had try/finally with no catch, so a failed `generateCMSDocument` call cleared the spinner but gave the admin no feedback at all (silent failure on the page CMS verifiers actively poke at). Added a catch + toast, a missing-file_url guard, and a double-submit guard. `copyText` was firing-and-forgetting `navigator.clipboard.writeText`; now awaits inside try/catch with a "select manually" toast fallback for locked-down browser contexts.
+
+  **Why:** This page is the CMS demo flow. Admin sits down, clicks "Generate worksheet," copies pre-filled answers — every silent failure here is a school-verification trust moment.
+
+- **3 other clipboard handlers** — `FriendCodeCard.copyCode`, `InviteLinkButton.handleInvite`, and `AdminDashboard.copyCode` all called `navigator.clipboard.writeText` without awaiting / catching. In insecure-context or permission-denied cases the optimistic "Copied!" UI lit up but nothing was actually on the clipboard. All three now await inside try/catch with sensible fallbacks. `InviteLinkButton` falls back to `window.prompt()` so the host always has a way to share the invite link, even on locked-down school devices.
+
+  **Why:** Clipboard "I clicked Copy and it lied to me" is a small but high-friction-trust bug, especially in classroom contexts where students share invite codes.
+
 ---
 
 ## [Unreleased] — 2026-04-26 (evening shift)
