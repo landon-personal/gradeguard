@@ -6,6 +6,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-27 (overnight shift)
+
+Pushed to `landon-personal/gradeguardnewsync` on branch `claude/peaceful-gates-OcGfj`. No desktop installer cut.
+
+### Added (web)
+- **Study Activity Heatmap** (`src/components/gamification/StudyHeatmap.jsx`) — GitHub-style contribution graph on the Achievements page showing a full year of assignment completions. Each day is coloured by activity intensity (none / 1 / 2-3 / 4+). Hover any cell to see the exact date and count. Header line shows total completions, active-day count, and all-time best streak at a glance. Pure client-side — reuses the assignments query already loaded on the page, zero new API calls. ([d83632d](https://github.com/landon-personal/gradeguardnewsync/commit/d83632d))
+
+### Fixed (web)
+- **StudyRooms `handleCreate` + `handleJoin`** — both had `setCreating/setJoining(false)` outside any try/catch. A network failure left the "Creating…" / "Joining…" buttons stuck forever. Wrapped in try/catch/finally + double-submit guards. Also fixed `joinFromInvite` (invite-link auto-join useEffect) which had no error boundary at all. ([72287af](https://github.com/landon-personal/gradeguardnewsync/commit/72287af))
+- **RoomView `handleStartQuiz`** — `setGenerating(false)` not in a finally block; a failed `InvokeLLM` call left the "Generating…" spinner stuck. Wrapped in try/catch/finally + double-submit guard. ([22bb495](https://github.com/landon-personal/gradeguardnewsync/commit/22bb495))
+- **RoomView `handleSubmit`** — `setSubmitted(true)` was called *before* the awaits, so the "submitted" screen appeared even when the score failed to save. Moved setSubmitted after the successful `create` call. ([22bb495](https://github.com/landon-personal/gradeguardnewsync/commit/22bb495))
+- **AssignmentForm `handleAISuggest`** + **TestForm `handleAISuggest`** — `setAiLoading(false)` not in a finally; a failed LLM call left the AI Suggest button stuck on "…" forever. Wrapped in try/catch/finally + double-submit guard on both. ([ae8fda6](https://github.com/landon-personal/gradeguardnewsync/commit/ae8fda6), [762528f](https://github.com/landon-personal/gradeguardnewsync/commit/762528f))
+- **AssignmentAttachment `handleFileChange`** — `setUploading(false)` not in a finally; a failed file upload or entity update left the "Uploading…" button permanently stuck. Wrapped in try/catch/finally. ([ae8fda6](https://github.com/landon-personal/gradeguardnewsync/commit/ae8fda6))
+- **TodoItemCard `handleComplete`** — `setCompleting(true)` with no error boundary; if the completion callback threw, the checkmark animation played forever. Added try/catch to reset on error + double-submit guard. ([489b182](https://github.com/landon-personal/gradeguardnewsync/commit/489b182))
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
