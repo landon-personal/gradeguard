@@ -6,6 +6,47 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-27 (afternoon shift)
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — feature
+- **Command palette (⌘K / Ctrl+K)** — globally available from any logged-in page. Press the shortcut (or click the new "Search" button in the header / mobile menu) to fuzzy-search and jump to: any page, "Add assignment / Add test / Ask the AI", any pending assignment by name or subject, or any upcoming test. Reads from the React Query cache that Layout already prefetches, so it opens instantly. Honors school anonymization (hides Friends / Quiz Competition) and admin role (only Admin Dashboard).
+
+  **Why:** GradeGuard's surface area keeps growing — assignments, tests, study assistant, achievements, friends, quiz comp. Mouse-driven nav was getting slow. ⌘K is the universal "open whatever I'm thinking of" affordance students expect from modern apps, and the visible search button advertises the shortcut to anyone who hasn't found it yet.
+
+### Fixed (web)
+- **Assignments page — delete confirmation** — the page tracked `deleteConfirm` state and had a `handleDeleteConfirm` callback, but never actually rendered the `ConfirmDialog`. Clicking the trash icon on a card silently set state and then nothing happened — the assignment was never deleted, and the student got no feedback at all. Mounted the dialog mirroring the Tests page pattern.
+
+  **Why:** Delete was effectively broken on the page where it matters most. Students had no way to remove a typo'd or no-longer-relevant assignment from the UI.
+
+- **File upload + smart-scan handlers** — three async handlers were vulnerable to "stuck on uploading" forever when the upload or model call threw:
+  - `StudyAssistant handleFileAttach` (paperclip icon)
+  - `AssignmentAttachment handleFileChange` (per-assignment "Attach syllabus / notes")
+  - `SmartScanModal handleFile` (camera scan; locked the modal on the "scanning" step)
+
+  Each is now wrapped in try/catch/finally with a `toast.error` on failure and the loading flag reset in `finally`. Added double-submit guards. `SmartScanModal handleClarifySubmit` had the same no-finally bug for its second LLM call — also fixed. `AssignmentAttachment handleRemove` got a try/catch so a failed delete surfaces a toast instead of silently dropping the click.
+
+  **Why:** These are some of the most-used touchpoints for students who learn visually — upload a worksheet photo, scan an agenda, attach a syllabus. A network blip leaving the spinner hung indefinitely is the kind of thing that makes a kid abandon the feature.
+
+- **StudyRooms create / join** — `handleCreate` and `handleJoin` had `setCreating/setJoining(true)` → `await` → `setCreating/setJoining(false)` with no error handling. A failed StudyRoom create or member-lookup left the button stuck on "Creating…" / "Joining…" until the page was reloaded. Wrapped in try/catch/finally with a toast (or inline `joinError` for the join flow) and added double-submit guards so rapid clicks can't create duplicate rooms.
+
+  **Why:** Quiz competition is a social hook for the school pilot; a failed room create / join is exactly the moment students lose patience and stop trying.
+
+- **StudyRoom `RoomView` quiz generation** — `handleStartQuiz` had the same pattern: `setGenerating(true)` → `await InvokeLLM` → update room → `setGenerating(false)`. A failed model call left the host stuck on "Generating questions…" with a dead Start button and no way to retry without re-entering the room. Now wrapped in try/catch/finally with a double-submit guard. `handleSubmit` also wraps the result write so a failed save reverts `setSubmitted` and surfaces a toast — previously you'd appear to have submitted but no result was actually saved.
+
+  **Why:** When a host kicks off a quiz battle, every other student in the room is staring at the lobby waiting. A silent fail with no retry path is a worst-case UX moment.
+
+- **AnonymizationToggle** — admin-side school-anonymization toggle had `setLoading(false)` outside its try/catch, plus no double-submit guard. Moved into a `finally` block and added the guard so a flaky network or a fat-fingered double-click can't leave the button spinning or fire two anonymization runs.
+
+  **Why:** This is the privacy-compliance switch CMS admins flip — it has to feel solid on the demo.
+
+- **MoodCheckIn — corrupt localStorage** — `JSON.parse(localStorage.getItem(...))` was bare. One bad/legacy entry would throw inside `useEffect` and crash the dashboard render. Wrapped the parse in try/catch and clear the bad entry so the next pick writes a fresh one.
+
+  **Why:** The dashboard is the first screen after login. A single stale localStorage entry on one user's device should not be able to brick it.
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
