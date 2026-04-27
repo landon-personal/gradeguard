@@ -67,6 +67,18 @@ Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, a
 
   **Why:** Clipboard "I clicked Copy and it lied to me" is a small but high-friction-trust bug, especially in classroom contexts where students share invite codes.
 
+- **Bulk assignment create + Friends friend-code generation** — `Assignments.handleBulkCreate` (called from SmartScanModal and AIAssignmentChat) had a for-await loop that swallowed individual errors and gave the user no feedback when some-or-all writes failed; the modal closed silently. Now counts failures and surfaces "Saved N of M" or full-failure toast. `Friends` friend-code generator had a bare `.then()` with no `.catch()` on the one-time profile update, polluting devtools with unhandled rejections; added a `.catch` that lets the effect retry naturally on next mount.
+
+  **Why:** The smart scan flow ("take a photo of my agenda") + AI chat-to-import are some of the highest-leverage student-facing features. Silent partial failure here means the student thinks all 8 assignments imported when really only 5 did.
+
+- **`RoomView` initial loads — bare `.then()` chains** — both `StudyRoom.filter` and `StudyRoomResult.filter` on first mount were unwrapped. A network blip or stale token left the room state at `null` forever — indefinite spinner with no recovery short of full reload. Added catches with toast on the room load and silent log on the results load (which is non-blocking).
+
+- **`Dashboard.handleCompleteFromTodo` — optimistic UI never reverted** — the handler optimistically updates the cache (item filtered/marked complete) BEFORE awaiting the server write. If the write threw, the local UI showed completion but the server state was unchanged. Wrapped in try/catch that re-invalidates the affected queries so the UI snaps back to truth on the next refetch.
+
+- **`Tests.handleMarkDone` — same optimistic-update no-revert bug** — optimistically wrote `status: 'completed'` into the local cache then fired `updateMutation`. The global `onError` toasted, but the cache update wasn't reverted, so the test stayed visually "completed" until the next refetch (often minutes later). Added a per-call `onError` that invalidates the tests query so the UI snaps back.
+
+  **Why (combined):** Optimistic updates make the app feel snappy, but only if they self-correct on failure. Otherwise students see "completed" assignments that quietly reappear later, which destroys trust in the system.
+
 ---
 
 ## [Unreleased] — 2026-04-26 (evening shift)
