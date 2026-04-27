@@ -6,6 +6,43 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-27 (morning shift)
+
+Pushed to `landon-personal/gradeguardnewsync` (branch `claude/peaceful-gates-0sykN`). Auto-syncs to gradeguard.org after merge.
+
+### Added (web)
+- **CalendarView** (`src/components/dashboard/CalendarView.jsx`) — monthly calendar grid on the Dashboard showing assignment due dates and test deadlines as color-coded dots (subject-hashed colors, red for tests). Click any day to see an inline list of what's due. Navigate months with prev/next arrows and a "Today" reset button. Only shows incomplete items so the calendar stays focused on planning.
+- **FocusTimer** (`src/components/dashboard/FocusTimer.jsx`) — Pomodoro-style countdown timer on the Dashboard (web companion to the Electron tray timer). Presets: 25m Pomodoro, 45m Long session, 5m Break. Circular SVG progress ring, session counter, Start/Pause/Reset controls. Auto-suggests a break timer when a session ends.
+- **ActivityHeatmap** (`src/components/gamification/ActivityHeatmap.jsx`) — GitHub-style contribution calendar on the Achievements page showing completed assignments over the last 13 weeks. Color-coded by completions per day; hover for date + count tooltip. Shows active-day count and best streak in the period.
+
+### Fixed (web)
+- **Dashboard `onFeedback`** — was wired to `() => {}` (no-op). Student mood/difficulty ratings were being saved to localStorage and read by `feedbackInstruction`, but the AI plan never actually regenerated after a rating. Now calls `generateAIPlan()` so feedback is applied immediately.
+- **Dashboard `generateAIPlan`** — had try/finally but no catch, causing an unhandled promise rejection on LLM failure. Added catch block.
+- **AnonymizationToggle `handleAnonymize`** — `setLoading(false)` was outside the finally block; added double-submit guard.
+- **StudyAssistant `sendMessage`** — added double-submit guard.
+- **StudyAssistant `handleFileAttach`** — wrapped UploadFile in try/catch/finally; moves `setUploadingFile(false)` to finally; shows error message in chat on failure.
+- **SmartScanModal `handleFile` + `handleClarifySubmit`** — wrapped in try/catch/finally; `handleFile` resets to upload step with toast on error; `handleClarifySubmit` has double-submit guard.
+- **MiniGames** — removed remaining `console.error` calls in all 3 games (trivia, memory match, TermGuesser); catch blocks now silently handle failures.
+- **AssignmentForm + TestForm `handleAISuggest`** — wrapped in try/catch/finally with double-submit guard.
+- **RoomView `handleStartQuiz` + `handleSubmit`** — added double-submit guards; wrapped in try/catch/finally. On submit error, resets `submitted` so the student can retry.
+- **AssignmentAttachment `handleFileChange` + `handleRemove`** — wrapped in try/catch/finally with guards; toast on failure.
+- **TodoItemCard `handleComplete`** — added double-submit guard + try/catch; resets `completing` on error.
+- **StudyRooms `handleCreate` + `handleJoin`** — added guards + try/catch/finally.
+- **Assignments `handleBulkCreate`** — wrapped loop in try/catch/finally; `queryClient.invalidateQueries` moved to finally so cache always refreshes.
+- **Assignments `handleStatusChange`** — wrapped `awardPoints` in try/catch (non-critical; status change already succeeded).
+- **Layout `handleDismissWhatsNew`** — wrapped profile update in try/catch (modal already dismissed, failure is non-critical).
+
+### Security / CMS compliance (web)
+Removed all remaining `console.error` calls that could expose student data or internal state to browser devtools:
+- `StudyAssistant` — 4 calls removed
+- `StudySchedule` — 1 call removed  
+- `AIAssignmentChat` — 2 calls removed (including one that logged raw LLM output containing assignment names)
+- `Onboarding` — 2 calls removed
+- `MiniGames` — 3 calls removed
+- `FlaggedMessagesPanel` — 1 call removed
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
