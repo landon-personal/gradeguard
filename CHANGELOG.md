@@ -28,6 +28,11 @@ Pushed straight to web canonical (`landon-personal/gradeguardnewsync`, auto-sync
 - **`SmartScanModal.handleFile`** — UploadFile or InvokeLLM failure left step stuck on "scanning" with no way out. Now resets to "upload" step and shows toast.
 - **`SmartScanModal.handleClarifySubmit`** — LLM failure left `loadingClarify` stuck. Now clears in finally.
 - **`TodoItemCard.handleComplete`** — missing try/catch left completing=true forever on failure. Also added double-submit guard.
+- **`StudyRooms.joinFromInvite`** — invite-link join had no error handling. Network failure left the student with a silent nothing on the invite URL.
+- **`StudyRooms.onLeave`** — leave-room update could fail, leaving user stuck in the room view. Now navigates away in finally so the user always exits.
+- **`Assignments.handleStatusChange`** — `awardPoints` call had no try/catch; a gamification backend failure would propagate up uncaught. XP is non-critical so it's now silently swallowed (assignment stays complete).
+- **`Assignments.handleBulkCreate`** — sequential assignment creates with no try/catch; a mid-loop failure silently left some assignments uncreated. Now shows toast and refreshes the list in finally.
+- **`StudyAssistant.handleFileAttach`** — UploadFile failure left `uploadingFile` stuck at true — attach button permanently disabled. Fixed with try/catch/finally + double-submit guard.
 
 ---
 
