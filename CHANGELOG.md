@@ -6,6 +6,32 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-27 (morning shift)
+
+Pushed straight to `landon-personal/gradeguardnewsync`. No desktop installer changes.
+
+### Added (web)
+- **Weekly Recap page** — new nav item under "More" that shows students a weekly summary: assignments completed, estimated study time, subject breakdown bar chart, current streak + active days, AI-generated coach note (InvokeLLM, cached in sessionStorage to avoid re-generating on revisit), and a "Due in the Next 7 Days" preview. Use the ← → arrows to browse previous weeks.
+- **Focus Timer widget on Dashboard** — Pomodoro-style countdown timer (5m / 15m / 25m / 45m presets) as the third card in the secondary widget row. Features: animated SVG progress ring, updates the browser tab title to `⏱️ 24:00 — GradeGuard` while running (visible when switching tabs), browser push notification on completion, shows the top AI-plan task as context. No new npm dependencies.
+
+### Fixed (web) — async error handling sweep
+- **StudyRooms `handleCreate` + `handleJoin`** — both set loading state with no try/catch. A network error left the create/join buttons permanently stuck. Added try/catch/finally + double-submit guards.
+- **RoomView `handleStartQuiz`** — InvokeLLM + room update had no error handling, leaving `setGenerating` stuck. Fixed with try/catch/finally + double-submit guard.
+- **RoomView `handleSubmit`** — quiz result was `setSubmitted(true)` *before* the server write succeeded. A failed create left the UI showing results with nothing recorded. Moved `setSubmitted` inside the try block.
+- **StudyAssistant `handleFileAttach`** — `UploadFile` call had no try/catch; a failed upload left `uploadingFile` stuck on true and the file input disabled.
+- **AssignmentAttachment `handleFileChange`** — same pattern; `UploadFile` + `secureEntity.update` had no error handling, leaving the component frozen in the uploading state.
+- **SmartScanModal `handleFile`** — `UploadFile` + `InvokeLLM` had no try/catch. Any error left the modal permanently stuck in "scanning" state. Now falls back to the upload step with a toast.
+- **SmartScanModal `handleClarifySubmit`** — `InvokeLLM` call had no error handling; `loadingClarify` would get stuck. Added try/catch/finally + double-submit guard.
+- **TestForm `handleAISuggest`** / **AssignmentForm `handleAISuggest`** — `setAiLoading(true)` without try/catch. A failed InvokeLLM left the spinner frozen. Wrapped in try/catch/finally (silent fail — suggestion is non-critical).
+- **MiniGames `TermGuesser` `generateTerm`** — InvokeLLM had no error handling, leaving `loading` stuck on true forever. Now falls back to game-over with `finally { setLoading(false) }`.
+- **`useGamification.awardPoints`** — multiple awaits with no error handling; a network error propagated as an unhandled rejection to every caller. Wrapped internally in try/catch; returns null on failure. Callers already guard against null.
+- **`Assignments.handleStatusChange`** — `await awardPoints()` had no catch. XP award failure would bubble as unhandled rejection. Wrapped in try/catch (XP is non-critical, completion already happened via mutation).
+
+### Why
+Continued the async-error-handling sweep. All 11 fixes follow the same pattern: an async handler set loading state with `setX(true)` but had no `try/catch/finally`, leaving the UI permanently stuck if the await threw. These are "stuck on Loading…" / "button stays disabled" bugs that CMS school admins and students would encounter during demos or regular use.
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
