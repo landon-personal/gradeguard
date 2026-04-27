@@ -6,6 +6,36 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-27 (morning shift)
+
+Pushed to `landon-personal/gradeguardnewsync` branch `claude/peaceful-gates-KrLU0`, auto-syncs to gradeguard.org. No new desktop installer.
+
+### Added (web)
+- **Study Activity Calendar** (`src/components/gamification/StreakCalendar.jsx`) — GitHub-style 12-week contribution heatmap on the Achievements page. Five intensity tiers (grey → orange-800) reflect daily completion count; hover shows a tooltip with the date and count. Helps students visualise consistency at a glance.
+- **In-app Pomodoro Timer** (`src/components/dashboard/PomodoroTimer.jsx`) — floating pill in the bottom-right of every page (web). Three presets: Classic 25/5, Deep 50/10, Quick 15/3. SVG circular progress ring, session-dot counter, phase-end browser notifications, stale-closure-safe via `useRef` synced refs.
+- **Keyboard shortcuts** — press `D/A/T/S` for Dashboard / Assignments / Tests / StudyAssistant; `?` opens the shortcuts overlay. `Esc` closes it. Guarded so typing in input fields is unaffected. `?` button added to the desktop header for discoverability.
+- **Best-streak tracking** — `useGamification` now persists `longest_streak` to `GamificationStats`. The Achievements hero shows "Best: N" under the current streak when the all-time record exceeds the current run.
+- **New badges** — "Iron Will" (50-day streak, ⚡) and "Unstoppable" (100-day streak, 🌋) added to `BadgeDefinitions`.
+- **TodaysFocusCard CTA** — added a "Go to Assignments / Go to Tests" link at the bottom of the card so students can navigate directly from the dashboard focus widget.
+
+### Fixed (web)
+- **StudyRooms `handleCreate` / `handleJoin` / `onLeave`** — all three handlers were unguarded. `setCreating`/`setJoining` could get stuck on `true`; `setSelectedRoomId(null)` was only reached on the happy path. Wrapped all three in try/catch/finally.
+- **Dashboard `handleCompleteFromTodo`** — DB update + `awardPoints` lacked error handling; optimistic UI changes would persist if the update failed. Added try/catch with `toast.error` + `queryClient.invalidateQueries` to roll back the optimistic state.
+- **Assignments `handleStatusChange`** — `awardPoints` call after a status change had no catch. Added silent catch so a gamification failure never prevents the primary save.
+- **Assignments `handleBulkCreate`** — the bulk-import loop lacked finally; `queryClient.invalidateQueries` now runs whether the loop succeeded or threw.
+- **RoomView `handleSubmit` / `handleStartQuiz`** — score submission and quiz generation both unguarded. `setGenerating` could stick on `true`; wrapped both in try/catch/finally.
+- **AssignmentAttachment `handleFileChange` / `handleRemove`** — upload had no finally (setUploading stuck); remove had no error feedback. Both wrapped with try/catch/finally.
+- **SmartScanModal `handleFile`** — split into two independent try/catch blocks (upload vs LLM call); each resets the UI to "upload" step on failure so users aren't left on a stuck "scanning" screen.
+- **StudyAssistant `handleFileAttach`** — wrapped in try/catch/finally; `setUploadingFile` now always resets.
+- **Notifications `last_checked` update** — wrapped the non-critical DB write in try/catch so a backend hiccup can't break the notification badge calculation.
+- **Layout `AnimatePresence`** — was not imported; keyboard shortcuts overlay would throw on open/close. Added to the framer-motion import.
+- **Quiz Competition nav icon** — was `Users` (same as Friends tab). Changed to `Swords` so the two tabs are visually distinct.
+
+### Why
+Second async-handler sweep on the new canonical repo. Shipped one high-visibility feature (Pomodoro timer), one engagement feature (streak calendar + new badges), and one UX improvement (keyboard shortcuts + best-streak stat). Every fix prevents a "stuck spinner" or silent failure that would be the student's first impression of the app.
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
