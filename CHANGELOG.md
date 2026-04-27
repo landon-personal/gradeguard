@@ -6,6 +6,30 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-27 (early-morning shift)
+
+Pushed to `landon-personal/gradeguardnewsync` (auto-syncs to gradeguard.org). No desktop changes.
+
+### Added (web — features)
+- **Study Activity Heatmap Calendar** (`src/components/gamification/StreakCalendar.jsx`) — GitHub-style 16-week contribution grid added to the Achievements page. Each day cell colors from light orange (1 completion) to deep orange (3+). Hover shows exact date + count. Today is highlighted with an orange border, future cells grayed out, month labels appear on month change. Footer shows active-day count and switches to hover details. Makes streak progress tangible and motivating beyond the floating counter.
+- **Pomodoro Focus Timer** (`src/components/dashboard/PomodoroTimer.jsx`) — Each item in the AI Study Plan now has a "Timer" button. Clicking it opens a countdown pre-loaded with the item's AI-suggested study time. Shows a circular SVG progress ring, play/pause/reset controls, and the assignment name. When the focus session ends, fires confetti and offers a 5-minute break timer. Built with `useRef`+`setInterval` to avoid stale-closure bugs. Wired into `SmartTodoList` via `timerItem` state; toggling the same item closes the timer.
+
+### Fixed (web — bug sweep)
+- **StudyRooms `handleCreate` + `handleJoin`** — Both had `setCreating`/`setJoining` without try/catch/finally, leaving buttons permanently disabled on error. Wrapped, added double-submit guards.
+- **StudyRooms `joinFromInvite`** — Invite-link auto-join had no error handling; a network failure silently crashed it. Now shows a visible joinError.
+- **StudyRooms `onLeave`** — Member-removal update failure would swallow silently. Added silent try/catch so navigation always completes.
+- **RoomView `handleStartQuiz`** — LLM call without try/catch/finally; failed generation left "Generating…" stuck. Wrapped + added double-submit guard + toast on failure.
+- **RoomView `handleSubmit`** — Score save/status update had no error handling; silent failure meant scores didn't appear on leaderboard. Added try/catch with explanatory toast.
+- **SmartScanModal `handleFile` + `handleClarifySubmit`** — `handleFile` had no error handling (stuck on "Reading your planner…" forever on any error); `handleClarifySubmit` missing finally. Both wrapped, errors surfaced via inline UI messages.
+- **AssignmentForm + TestForm `handleAISuggest`** — `setAiLoading(true)` without finally; AI Suggest button permanently disabled on error. Wrapped in try/catch/finally (silent catch — suggestions are optional).
+- **MiniGames VocabGuesser** — `generateTerm` useEffect had no try/catch; LLM failure left "Picking a term…" running forever. Added try/catch/finally, falls to game-over on error.
+- **NotificationPermission `requestPermission`** — Browser `Notification.requestPermission()` can throw in restricted contexts (iframe, Firefox private). Now catches and shows "denied" state.
+- **Assignments `handleBulkCreate`** — loop over `secureEntity.create` calls had no error handling; partial save gave no feedback. Wrapped with try/catch + error toast.
+- **Assignments `handleStatusChange`** — `await awardPoints()` without try/catch; a network error would crash after the DB update already succeeded, silently losing XP display. Wrapped in silent try/catch.
+- **StudyAssistant `handleFileAttach`** — `setUploadingFile(true)` without finally; a failed upload left the input stuck. Wrapped in try/catch/finally.
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
