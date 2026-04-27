@@ -6,6 +6,31 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-27 (morning shift)
+
+Pushed straight to web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut.
+
+### Added (web)
+- **Floating Pomodoro timer widget** — shows on every page for logged-in students, bottom-left corner. Click the pill to expand: circular progress ring, Focus / Break / Long break tabs, session-dot counter (4 dots = 1 set), play/pause/reset/skip controls, and an assignment picker so students can tag what they're working on. Timer state persists across page navigation via sessionStorage. Plays a 3-beep audio alarm via Web Audio API when a session ends. Pill glows indigo/green while running.
+  **Why:** Students using GradeGuard to study had no built-in timer — they'd switch to a separate app and lose context. The Pomodoro method is one of the most evidence-backed study strategies; putting it inline with their assignments makes it instantly accessible.
+
+### Fixed (web)
+- **`AssignmentForm.handleAISuggest`** — missing try/catch/finally left the "AI Suggest" button stuck spinning forever on LLM failure. Also added double-submit guard.
+- **`TestForm.handleAISuggest`** — same pattern, same fix.
+- **`StudyRooms.handleCreate`** — missing try/catch/finally left the Create button permanently disabled after a failed room creation. Added error state display + double-submit guard.
+- **`StudyRooms.handleJoin`** — same pattern on the Join flow.
+- **`RoomView.handleStartQuiz`** — missing try/catch/finally left the generating spinner stuck after an LLM failure. Added double-submit guard.
+- **`RoomView.handleSubmit`** — set `submitted=true` before the API call, so a save failure left the student in a "waiting" screen with no score stored. Reordered to set `submitted` only after the create succeeds; added a `submitting` loading state so the button shows "Saving…" and can't be double-clicked; added `toast.error` on failure.
+- **`Dashboard.handleCompleteFromTodo`** — awaited server writes (Assignment.update, Test.update, awardPoints) without try/catch. A failed update left the optimistic cache out of sync with the server silently. Now catches errors, shows a toast, and re-fetches from the server.
+- **`MiniGames.TermGuesser.generateTerm`** — missing try/catch/finally; LLM failure left the game stuck on the loading screen.
+- **`AssignmentAttachment.handleFileChange`** — missing try/catch/finally left the "Uploading…" state stuck on upload/save failure. Also added double-submit guard.
+- **`AssignmentAttachment.handleRemove`** — errors were completely silent. Now shows toast.error.
+- **`SmartScanModal.handleFile`** — UploadFile or InvokeLLM failure left step stuck on "scanning" with no way out. Now resets to "upload" step and shows toast.
+- **`SmartScanModal.handleClarifySubmit`** — LLM failure left `loadingClarify` stuck. Now clears in finally.
+- **`TodoItemCard.handleComplete`** — missing try/catch left completing=true forever on failure. Also added double-submit guard.
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
