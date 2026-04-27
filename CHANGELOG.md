@@ -13,6 +13,8 @@ Pushed straight to web canonical (`landon-personal/gradeguardnewsync`, auto-sync
 ### Added (web)
 - **Floating Pomodoro timer widget** — shows on every page for logged-in students, bottom-left corner. Click the pill to expand: circular progress ring, Focus / Break / Long break tabs, session-dot counter (4 dots = 1 set), play/pause/reset/skip controls, and an assignment picker so students can tag what they're working on. Timer state persists across page navigation via sessionStorage. Plays a 3-beep audio alarm via Web Audio API when a session ends. Pill glows indigo/green while running.
   **Why:** Students using GradeGuard to study had no built-in timer — they'd switch to a separate app and lose context. The Pomodoro method is one of the most evidence-backed study strategies; putting it inline with their assignments makes it instantly accessible.
+- **Study activity heatmap on Achievements page** — 16-week GitHub-style contribution calendar. Each cell = one day, colored by how many assignments were completed (0 → transparent, 1–4+ → increasingly intense indigo). Hover tooltip shows exact date and count. Month labels auto-generate above the grid; day-of-week labels on the left. Shows total completions + active day count in the header.
+  **Why:** The streak counter only shows the current streak; students had no way to see their broader history. The heatmap gives instant visual feedback on effort patterns over the past 4 months, and is intrinsically motivating (nobody wants blank spots on their calendar).
 
 ### Fixed (web)
 - **`AssignmentForm.handleAISuggest`** — missing try/catch/finally left the "AI Suggest" button stuck spinning forever on LLM failure. Also added double-submit guard.
