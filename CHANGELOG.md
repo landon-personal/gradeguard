@@ -27,10 +27,17 @@ The Base44 sync overwrote a number of fixes from the prior two shifts. Re-applie
 - **Dashboard `handleCompleteFromTodo`** — bare await on Test/Assignment update with optimistic `setQueryData` above. **Why:** on save failure the UI was stale until next refetch; now invalidates on error so it snaps back to server truth.
 - **Tests `handleMarkDone`** — same optimistic-update no-revert bug. **Why:** marking a test "done" then having it fail silently came back as "wait, did that save?"
 - **MoodCheckIn** — bare `JSON.parse` of a localStorage value. **Why:** a corrupt entry was crashing dashboard mount; now wraps + clears the bad entry.
+- **`useGamification.awardPoints`** — bare awaits on `GamificationStats.create` / `.update` would throw mid-flow, breaking the post-completion UX (XP toast, badge unlock, extension nudge). Wrapped + return null so callers using `result?.points` skip the celebration cleanly.
+- **Friends friend-code generator** — bare `.then()` with no `.catch` produced an unhandled rejection on a transient profile.update fail.
+- **Off-by-one timezone bug in 5 places** — `new Date("YYYY-MM-DD")` parses as UTC midnight; for PST/EST students/admins, that silently inflates "overdue" / at-risk counts on `SchoolAnalytics` + `StudentList`, denies the early-completion XP bonus in `BadgeDefinitions` + `useGamification`, and skews `PerformanceInsights` urgent lists. All five now use `parseLocalDate`.
+- **CMSCompliance `downloadDoc` + `copyText`** — try/finally with no catch; clipboard fired-and-forgot. Critical because this is the CMS verifier-facing page.
+- **3 other clipboard handlers — fired-and-forgot writeText.** `FriendCodeCard`, `AdminDashboard.copyCode`, and `InviteLinkButton` (with a `window.prompt` fallback so hosts always have a way to share).
 
 ### Fixed (web) — new this shift
 - **Layout `handleDismissWhatsNew`** — bare `await` on a flag write would block the requested navigation if the write threw. **Why:** the user could click "Explore Friends" in the modal and end up stuck on a frozen overlay.
 - **`useNotifications.checkAndNotify`** — fire-and-forget from useEffect with no `.catch`, producing an unhandled rejection on a failed `last_checked` write. **Why:** unhandled rejections clutter the console and trip future error-tracking; harmless but worth tightening.
+- **Dashboard `generateAIPlan`** — try/finally with no catch was throwing as an unhandled rejection on LLM failure. Now sets `aiError` state and `SmartTodoList` renders a retryable error card instead of just spinning.
+- **TestForm AI Suggest** — `setAiLoading(true)` + bare await + `setAiLoading(false)` with no try/catch. An LLM throw left the AI Suggest button disabled and the spinner card stuck "Generating..." forever. Wrapped + retryable error UI.
 
 ### Polish (web)
 - **Onboarding `handleAuth`** — dropped the dead `redirectIfSchoolSubdomain` helper (declared, never invoked). **Why:** the actual redirect happens inline below; the helper was just clutter and a lint warning.
