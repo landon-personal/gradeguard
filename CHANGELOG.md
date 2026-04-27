@@ -6,6 +6,40 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-27 (late-night shift, ~22:00 UTC)
+
+Pushed straight to the web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — features
+- **Bulk multi-select on Assignments** — new "Select" button in the Assignments header puts the page into selection mode. Tap any card to toggle; a sticky bulk-action bar shows count + Mark complete / Mark pending / Delete selected, plus a "Select all visible" toggle that respects active filters (search, subject, status). Bulk operations run via `Promise.allSettled`, so a partial failure surfaces "Updated X of Y" instead of silent partial-write. **Why:** doing 8 homework items one at a time was tedious; pairs naturally with the new command palette.
+- **Keyboard shortcuts cheatsheet (`?`)** — global overlay listing every shortcut: `⌘/Ctrl+K` palette, `?` cheatsheet, `Esc` close, `N` new on Assignments/Tests. Auto-detects Mac vs PC and shows the right cmd-key glyph. **Why:** with N, Esc, ⌘K, and now bulk select all in play, students didn't have a single place to discover them.
+- **AIProgressBar error state** — `<AIProgressBar error onRetry />` now renders a red "Something went wrong / Try again" card instead of spinning forever. **Why:** every AI call site (plan generation, flashcards, quizzes, mini-games) can now surface a retryable error inline.
+
+### Fixed (web) — re-port of regressed prior fixes
+The Base44 sync overwrote a number of fixes from the prior two shifts. Re-applied:
+
+- **Assignments delete-confirm dialog** — `setDeleteConfirm` was setting state but no `<ConfirmDialog>` was rendered, so the trash icon was a silent no-op. Restored the dialog. **Why:** the most-used destructive action on the page was broken.
+- **AssignmentAttachment `handleFileChange` + `handleRemove`** — try/catch/finally + double-submit guards. **Why:** an upload throw was leaving the UI stuck on "Uploading..." forever.
+- **SmartScanModal `handleFile` + `handleClarifySubmit`** — try/catch/finally + guards. **Why:** failure now surfaces an inline scanError banner instead of leaving the modal frozen on the AIProgressBar.
+- **StudyRooms `handleCreate`, `handleJoin`, `onLeave`** — all three were back to bare-await silent-fail patterns. **Why:** quiz competition entry/exit shouldn't trap the user on a network blip.
+- **StudyAssistant `handleFileAttach`** — try/catch/finally + always reset the file input. **Why:** retry-with-the-same-file now works.
+- **Dashboard + StudyAssistant `pollAiJob`** — wrap the AIJob filter in try/catch and reschedule at 1.5s on error. **Why:** a single network blip would silently freeze AIProgressBar at its last stage forever.
+- **Dashboard `handleCompleteFromTodo`** — bare await on Test/Assignment update with optimistic `setQueryData` above. **Why:** on save failure the UI was stale until next refetch; now invalidates on error so it snaps back to server truth.
+- **Tests `handleMarkDone`** — same optimistic-update no-revert bug. **Why:** marking a test "done" then having it fail silently came back as "wait, did that save?"
+- **MoodCheckIn** — bare `JSON.parse` of a localStorage value. **Why:** a corrupt entry was crashing dashboard mount; now wraps + clears the bad entry.
+
+### Fixed (web) — new this shift
+- **Layout `handleDismissWhatsNew`** — bare `await` on a flag write would block the requested navigation if the write threw. **Why:** the user could click "Explore Friends" in the modal and end up stuck on a frozen overlay.
+- **`useNotifications.checkAndNotify`** — fire-and-forget from useEffect with no `.catch`, producing an unhandled rejection on a failed `last_checked` write. **Why:** unhandled rejections clutter the console and trip future error-tracking; harmless but worth tightening.
+
+### Polish (web)
+- **Onboarding `handleAuth`** — dropped the dead `redirectIfSchoolSubdomain` helper (declared, never invoked). **Why:** the actual redirect happens inline below; the helper was just clutter and a lint warning.
+
+### Why
+A meaningful shift after several bug-fix-only ones — bulk actions and the cheatsheet are real features students will notice. The Base44-sync-regressing-prior-fixes pattern continues to be a thing, so re-porting + extending to a few new sites.
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
