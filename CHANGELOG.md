@@ -6,6 +6,40 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-27 (overnight shift)
+
+Pushed to `landon-personal/gradeguardnewsync` (auto-syncs to gradeguard.org). No desktop installer needed.
+
+### Added (web)
+- **Floating Pomodoro timer** (`src/components/layout/FloatingPomodoro.jsx`) — a persistent floating widget at the bottom-left of every page. 25-min focus / 5-min short break / 15-min long break presets. Circular progress ring, countdown in the browser tab title, desktop notification on completion. Press **P** from any page to open/close; press **Space** while open to start/pause. This brings the Pomodoro feature from the Electron app to web users.
+- **Deadline calendar on Dashboard** (`src/components/dashboard/DeadlineCalendar.jsx`) — a mini month-view calendar showing upcoming assignment and test due dates as colored dots (purple = assignment, red = test). Hover any date to see the names of what's due. Students can page through future months to plan ahead. Displayed side-by-side with Progress Charts.
+
+### Fixed (web) — async error handling sweep
+All of the following had `setLoading(true)` / `await` patterns without try/catch/finally, leaving the UI stuck in loading state on network errors:
+
+- **StudyRooms `handleCreate` + `handleJoin`** — creating or joining a quiz room could leave the "Creating…" button stuck. Added try/catch/finally + double-submit guards.
+- **StudyRooms `joinFromInvite`** — auto-join from URL invite link was unguarded; a failed lookup silently showed no error. Now surfaces the failure in the joinError UI.
+- **StudyRooms `onLeave`** — room exit update was unguarded; now non-fatal so the user navigates back regardless.
+- **RoomView `handleStartQuiz`** — LLM-based quiz generation left "Generating…" stuck on failure. Added try/catch/finally + double-submit guard.
+- **RoomView `handleSubmit`** — score submission was unguarded; failure now shows a toast and the user still sees their quiz results.
+- **RoomView initial load** — `.then()` with no `.catch()` caused unhandled promise rejections.
+- **AssignmentAttachment `handleFileChange` + `handleRemove`** — file upload left spinner stuck on error; remove was also silent. Added try/catch/finally + toast.error + double-submit guard.
+- **SmartScanModal `handleFile`** — failed upload or OCR scan left the UI stuck on "scanning" step with no escape. Now falls back to upload step.
+- **SmartScanModal `handleClarifySubmit`** — `setLoadingClarify(false)` was outside finally; moved it in and added double-submit guard.
+- **AssignmentForm + TestForm `handleAISuggest`** — AI-suggest button on the new-assignment/new-test form left "Suggesting…" stuck on LLM failure. Added try/catch/finally + double-submit guards + toast.error.
+- **Assignments `handleBulkCreate`** — bulk-create loop (used by SmartScan and AIAssignmentChat) had no error handling; a single failed create aborted the rest silently. Now individually wrapped with a failure-count toast.
+- **Assignments `handleStatusChange`** — `awardPoints` was unguarded; XP award failure now non-fatal so the assignment status is still saved.
+- **StudyAssistant `handleAction`** — AI-driven assignment add/update from chat was silent on failure.
+- **StudyAssistant `handleFileAttach`** — file upload left `uploadingFile=true` on error; fixed with try/catch/finally + double-submit guard.
+- **StudyAssistant `handleQuizResults`** — QuizResult.create() was unguarded; now non-fatal so quiz completion still proceeds.
+- **AnonymizationToggle** — `setLoading(false)` was outside the finally block; moved it + added double-submit guard.
+- **TodoItemCard `handleComplete`** — set `completing=true` but never reset on error; now resets + shows toast.
+- **Dashboard `pollAiJob`** — background polling had no try/catch; a network error caused an unhandled promise rejection.
+- **useNotifications** — `last_checked` persistence was unguarded; notifications still fire even if the persistence fails.
+- **Friends** — friend-code auto-generation `.then()` had no `.catch()`.
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
