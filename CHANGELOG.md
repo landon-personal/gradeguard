@@ -6,6 +6,33 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-27 (autonomous shift)
+
+Pushed straight to `landon-personal/gradeguardnewsync` branch `claude/peaceful-gates-IqTc2`. No new desktop installer cut.
+
+### Added (web)
+- **StreakCalendar heatmap** (`src/components/gamification/StreakCalendar.jsx`) — GitHub-style 17-week contribution grid on the Achievements page. Each cell represents one day; color intensity (5 levels, indigo) shows how many assignments were completed. Hover tooltip shows the exact count. "Today" is highlighted with a ring. O(n) pre-computation via `countMap` in `useMemo`. Commit `0b7d6de`.
+- **FocusTimer Pomodoro widget** (`src/components/dashboard/FocusTimer.jsx`) — Circular SVG progress ring with 25/10/5-minute presets, Play/Pause/Reset controls with Framer Motion, and Browser Notification API on completion. Displayed on Dashboard beside ProgressCharts. Commit `202c15a`.
+- **Confetti on task completion** — `TodoItemCard.handleComplete` now fires a `canvas-confetti` burst originating from the exact button clicked (via `getBoundingClientRect`). Commit `5e68752`.
+- **Streak-at-risk warning** — After 5 pm, if streak > 0 and no assignment completed today, `FloatingStreakCounter` badge turns red, pulses, and shows "!" overlay. Hover tooltip reads "⚡ Streak at risk! Complete 1 assignment to keep your N-day streak." Commit `ed07ca2`.
+
+### Fixed (web) — async handler hardening
+- **RoomView `handleStartQuiz`** — added double-submit guard + try/catch/finally so `setGenerating(false)` always runs. Commit `3e66562`.
+- **InviteLinkButton clipboard copy** — wrapped in try/catch; fallback toast shows the URL if `navigator.clipboard` is blocked. Commit `3e66562`.
+- **AssignmentAttachment `handleFileChange` + `handleRemove`** — double-submit guard + try/catch/finally on upload and remove. Commit `3e66562`.
+- **Assignments `handleBulkCreate`** — SmartScan batch create loop wrapped in try/catch. Commit `0aaf673`.
+- **StudyRooms `handleCreate` + `handleJoin` + `joinFromInvite`** — double-submit guards + try/catch/finally on all three paths. Commit `120d77e`.
+- **AssignmentForm `handleAISuggest`** — double-submit guard + try/catch/finally. Commit `4fe50db`.
+- **TestForm `handleAISuggest`** — same pattern. Commit `4fe50db`.
+- **SmartScanModal `handleFile` + `handleClarifySubmit`** — try/catch resets to upload step on scan failure; double-submit guard on clarify. Commit `1462844`.
+- **StudyAssistant `handleFileAttach`** — double-submit guard + try/catch/finally. Commit `a4ba07c`.
+- **StudyAssistant `pollAiJob`** — internal `secureEntity().filter()` wrapped in try/catch that stops polling on error, preventing infinite error loops. Commit `17c2337`.
+- **Dashboard `generateAIPlan`** — added `catch` block to existing try/finally; now surfaces failures via `toast.error`. Commit `9d85108`.
+- **Dashboard `pollAiJob`** — same stop-on-error pattern as StudyAssistant. Commit `2d0afc9`.
+- **useGamification `awardPoints`** — wrapped bare `secureEntity().create()` + `secureEntity().update()` awaits in try/catch; assignment still marks complete even if stats write fails. Commit `012c11c`.
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
