@@ -1,0 +1,104 @@
+name: Rebase claude/* branches onto main (and merge into main)
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (do not push anything)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-merge-main
+  cancel-in-progress: false
+
+jobs:
+  rebase:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Rebase each claude/* branch onto main, then merge into main
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -uo pipefail
+          git fetch --all --prune
+          git checkout main
+          git reset --hard origin/main
+
+          rebased=()
+          merged=()
+          conflict_rebase=()
+          conflict_merge=()
+
+          while read -r branch; do
+            [ -z "$branch" ] && continue
+            case "$branch" in
+              claude/fix-base44-sync-*) echo "skip self: $branch"; continue ;;
+            esac
+
+            echo "=== $branch ==="
+            git checkout -B "$branch" "origin/$branch"
+
+            # rebase against our (possibly already-advanced) local main
+            if git rebase main; then
+              rebased+=("$branch")
+              if [ "$DRY_RUN" != "true" ]; then
+                git push --force-with-lease origin "$branch" || echo "::warning::force-push failed for $branch"
+              fi
+
+              # merge the freshly-rebased branch into main
+              git checkout main
+              if git merge --no-ff -m "Auto-merge $branch into main (post-rebase)" "$branch"; then
+                merged+=("$branch")
+              else
+                git merge --abort
+                conflict_merge+=("$branch")
+                echo "::warning::Merge into main failed after clean rebase: $branch"
+              fi
+            else
+              git rebase --abort || true
+              conflict_rebase+=("$branch")
+              echo "::warning::Rebase conflict on $branch — left untouched, needs manual rebase"
+              git checkout main
+            fi
+          done < <(git for-each-ref --sort=committerdate --format='%(refname:short)' 'refs/remotes/origin/claude/*' | sed 's|^origin/||')
+
+          {
+            echo "## Rebase summary"
+            echo
+            echo "### Rebased & force-pushed (${#rebased[@]})"
+            printf -- '- %s\n' "${rebased[@]:-<none>}"
+            echo
+            echo "### Merged into main (${#merged[@]})"
+            printf -- '- %s\n' "${merged[@]:-<none>}"
+            echo
+            echo "### Rebase conflicts — manual rebase needed (${#conflict_rebase[@]})"
+            printf -- '- %s\n' "${conflict_rebase[@]:-<none>}"
+            echo
+            echo "### Merge-into-main conflicts (${#conflict_merge[@]})"
+            printf -- '- %s\n' "${conflict_merge[@]:-<none>}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Push main
+        if: ${{ inputs.dry_run == false }}
+        run: |
+          for attempt in 1 2 3 4; do
+            if git push origin main; then exit 0; fi
+            echo "push failed (attempt $attempt) — sleeping then retrying"
+            sleep $((2 ** attempt))
+          done
+          echo "::error::push to main failed after retries"
+          exit 1
