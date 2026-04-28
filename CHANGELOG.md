@@ -6,6 +6,33 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-28 (afternoon shift)
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Focus Timer ⏱️
+
+- **`src/pages/FocusTimer.jsx`** — a brand-new dedicated page (route `/FocusTimer`) for Pomodoro-style focus sessions. Big SVG progress ring with mm:ss readout that updates `document.title` so it stays useful in a backgrounded tab. Focus and break modes with presets (15/25/45/50 min focus; 5/10/15 min break) plus 5–90 / 1–30 min sliders for custom durations. Auto-arms a break after a finished focus session so the next click is just "play."
+- **Subject tagging:** optional free-text "What are you focusing on?" field (60 chars max). Stays on-device — never sent to the server. Pre-fillable via `?subject=...` query string.
+- **Stats:** today's session count + total minutes, and a 7-day mini bar chart. All session history (date, minutes, subject) is stored in `localStorage` under `gg_focus_sessions`, capped at 60 days for storage hygiene. Today's log is browseable inline with a one-click clear.
+- **Audio:** completion chime is generated in-browser via the Web Audio API (no asset, no network). Mute toggle, persisted in `gg_focus_prefs` along with last-used durations.
+- **Discoverability:** new "Focus Timer" entry in the desktop nav overflow + mobile menu (with `Timer` icon); a tile in the StudyAssistant's "🛠 STUDY TOOLS" section; a chip in `SuggestionChips`; and a "Start a focus session on this →" deep-link on `TodaysFocusCard` that pre-fills the subject with the most-urgent assignment/test name.
+- **Why:** Pomodoro is the technique the StudyAssistant has been *recommending* for months without giving students a way to actually do it. This is the missing first-party tool. Subject tagging means a student who studies 4×25 min on bio over the week can see that visually. All on-device, no PII, fits the CMS verification posture cleanly. Sister addition to last shift's Flashcards-from-notes tool — both ship at the same altitude (real student-facing tool, not a bug-fix).
+- **Skip behavior:** the original draft logged a full session whenever Skip was pressed mid-run, which would have inflated today's totals with fake sessions. Now Skip ends the run without logging — sessions only land in the log if the timer naturally hits zero.
+
+### Fixed (web)
+
+- **`src/components/dashboard/MoodCheckIn.jsx`** — `JSON.parse` of `localStorage` was unguarded. A corrupt entry from an older build re-threw on every render and the whole dashboard card blank-screened. This had been fixed in a prior shift and regressed in the repo migration. Re-ported: try/catch with bad-key cleanup, plus a try/catch around `setItem` so private-mode / quota-exceeded doesn't crash the click handler. **Why:** the card is on every dashboard render — one bad localStorage write was load-bearing for the whole page.
+- **`src/components/assignments/AssignmentAttachment.jsx`** — `handleFileChange` had `setUploading(true) → await UploadFile → await Assignment.update → setUploading(false)` with NO try/catch/finally. A failed upload (network blip, oversized file, server error) left the "Uploading…" state and the disabled button stuck forever — only a page reload recovered it. Same problem on `handleRemove`: silent failure with no toast. Now both wrap in try/catch/finally with sonner toasts and a `removing` state for the X button (with a spinner). Added a `disabled={removing}` so a double-tap can't double-fire the delete. **Why:** attachment is one of the most-clicked features after assignment-create — silent failures here are deeply confusing.
+- **`src/components/assignments/AssignmentForm.jsx` + `src/components/tests/TestForm.jsx` — `handleAISuggest`** — both lost the try/catch + double-submit guard from prior shifts in the repo migration. A failed `InvokeLLM` would just throw out, leaving the AI Suggest button stuck on "..." forever and disabled. Now wrap in try/catch/finally with a toast + `if (aiLoading) return` guard. **Why:** another regression of a previously-shipped fix.
+- **`src/components/assignments/SmartScanModal.jsx` — `handleFile` + `handleClarifySubmit`** — both lost their try/catch in the migration. The photo-of-an-agenda OCR flow would leave a student stuck on the "Reading your planner..." progress bar with no way out if the upload or LLM call failed. The clarifying flow would freeze with `loadingClarify=true` forever. Re-ported: `handleFile` falls back to the upload step on error and surfaces a red banner with the message; `handleClarifySubmit` toasts and resets. **Why:** SmartScan is the showcase onboarding flow for first-time users — if it dies silently, students give up on the app.
+- **`src/components/assistant/FlashcardViewer.jsx` — `handleExport`** — used the raw `testName` (or, for Flashcards-from-notes, the user-typed deck title) directly as a filename. A title like "Bio / Ch.4" or "Gov: Unit 3" would either fail to download or, on some browsers, attempt to traverse a path. Sanitize against the OS-reserved set `[\\/:*?"<>|]` and clamp to 60 chars; fall back to "deck" if the name is empty. **Why:** the export is the only way to take a deck offline — it shouldn't choke on a punctuation character.
+
+### Why
+The Focus Timer is the headline ship — it gives students an actual tool for the technique the AI has been recommending all along, with stats that actually motivate (the 7-day bar chart is the addictive bit). The bug fixes are continued cleanup of regressions surfaced by the repo migration plus one new pre-existing bug in AssignmentAttachment that wasn't a regression.
+
+---
+
 ## [Unreleased] — 2026-04-28 (mid-day shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
