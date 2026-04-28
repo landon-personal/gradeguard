@@ -6,6 +6,31 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-28 (morning shift)
+
+Pushed straight to the web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web)
+- **WorkloadForecast** — a new dashboard widget showing the next 7 days as a horizontal strip of bars, color-coded by intensity (light/moderate/heavy) based on minutes of estimated work due that day. Today is ring-highlighted; busiest day is called out in the header. Tap any non-empty day to expand a list of the assignments + tests scheduled for it, with a one-click jump to the relevant page. Hidden when there's nothing in the next 7 days.
+  - **Why:** the dashboard told students what's pending and what's most urgent today, but never gave them a forward-looking view. Now they can see "Wednesday is going to be a crusher" three days early and start prepping.
+
+### Fixed (web)
+- **AssignmentAttachment.handleFileChange + handleRemove** — wrapped UploadFile + the entity update in try/catch/finally with toast feedback. Previously, a failed upload left the "Uploading…" label permanent and never reset the file input, so the user couldn't even retry the same file.
+  - **Why:** the per-assignment "Attach syllabus / notes" button is the on-ramp for AI plans that read syllabi. A silent upload failure here means the AI plan keeps running without the attachment and nobody knows why it's worse.
+- **StudyAssistant.handleFileAttach** — same try/catch/finally pattern + double-submit guard. Same stuck-state risk on the AI tutor's chat-attach flow.
+- **StudyAssistant.sendMessage** — added `if (loading) return` guard at the top. A hammered Send (or repeated Enter while waiting) could fire multiple parallel LLM requests against the same conversation.
+  - **Why:** every duplicate LLM call is real money and bad UX (replies arrive out of order).
+- **AssignmentForm.handleAISuggest + TestForm.handleAISuggest** — wrapped the AI subject/difficulty/time-suggest calls in try/catch/finally with toast errors + double-submit guard + null-safe field reads. Previously, an LLM hiccup left the ✨ Suggest button stuck on the spinner and could throw on `result.subject` if the SDK returned undefined.
+- **SmartScanModal.handleFile** — the photo→assignments OCR flow had no error path. If UploadFile or the LLM extraction threw, the modal sat on the "Reading your planner…" progress bar indefinitely with no way to recover except closing and starting over. Added a new `error` step with a clear message and a "Try a different photo" button that resets state.
+  - **Why:** SmartScan is the smoothest "wow" demo for school admins; a stuck spinner mid-demo is a bad first impression with CMS verification active.
+- **SmartScanModal.handleClarifySubmit** — wrapped the date-parsing LLM call in try/catch/finally + double-submit guard + null-safe response read.
+- **MoodCheckIn** — `JSON.parse(localStorage.getItem("gg_mood_<email>"))` could throw if the value got corrupted (extension scripts, manual edits), crashing the entire dashboard mount. Now catches and clears the bad key.
+
+### Polish (web)
+- Dropped an unused `motion` import in `Layout.jsx` (only lint error).
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
