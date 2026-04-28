@@ -6,6 +6,43 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-28 (mid-day shift)
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Flashcards from your notes 🎴
+
+- **`src/components/assistant/VocabQuizFromNotes.jsx`** — a new student-facing AI tool. Paste any block of class notes / textbook section / study guide text (40–8000 chars) into a textarea, optionally name the deck, pick the card count (5/10/15/20), and get back a ready-to-study flashcard set. Cards render in the existing `FlashcardViewer`, so flip / nav / export-to-.txt all just work. The LLM prompt forbids inventing facts not in the notes, varies card shape (terms, dates, formulas, cause/effect, key people), and uses LaTeX for math.
+- **Why:** Students take notes during class but don't always have time to turn them into a study deck. This is the fastest path from "I have notes" to "I'm quizzing myself on them" — no test record required, works for non-premium too. Sister feature to last shift's Essay Outliner; finishes the "AI tools that work with arbitrary student-supplied text" trio (chat → outliner → flashcards).
+- **Three entry points:**
+  1. Empty-state "🛠 STUDY TOOLS" tile in the StudyAssistant (visible to all users — premium and not).
+  2. "Flashcards from notes" chip in `SuggestionChips`, so premium users see it both above the chat input and on the empty state.
+  3. Deep link: `/StudyAssistant?tool=notes-flashcards[&title=...&notes=...]`. Pre-fills the form, lets us link to it from anywhere later.
+- **Premium vs. free behavior:** premium users get the AI-job progress bar (via `runTrackedStudyAssistantCall`); free users get a direct `InvokeLLM` call with a normal spinner. Same end result.
+- **Safety / privacy:** notes are sent to the AI tutor only to build the deck — there's a privacy hint shown to the student. Nothing is persisted to the school's records. No PII is auto-attached (notes come from the student typing/pasting, not from the assignments DB).
+
+### Fixed (web) — re-ports of prior shifts that regressed in the migration
+
+The repo migration to `gradeguardnewsync` (2026-04-26) keeps surfacing prior fixes that didn't make it into the snapshot. Patched another batch:
+
+- **`InviteLinkButton.handleInvite`** — `await navigator.clipboard.writeText(url)` had no try/catch in the navigator.share-absent fall-through, AND the "Copied" timer was a bare setTimeout with no ref/unmount cleanup. Both fixes existed pre-migration. Now: try/catch with a long-press hint on clipboard failure, timer ref + useEffect cleanup matching `FriendChatPanel` / `BadgeUnlockToast`. Also stop swallowing non-AbortError share failures silently.
+- **`FriendCodeCard.copyCode`** — `navigator.clipboard.writeText` was called WITHOUT await, then `toast.success` fired synchronously regardless of whether the copy succeeded. The toast was lying to users on browsers/contexts where Clipboard API is unavailable. Now async with try/catch + long-press hint on failure.
+- **`AdminDashboard.copyCode`** — same regression, same fix, for the school code copy in the admin tools.
+- **`CMSCompliance.copyText`** — same regression, same fix, for the CMS Vendor Questionnaire answer-snippet copy buttons. Added missing `sonner` toast import.
+- **`NotificationSettingsPanel.requestPerm`** — re-ported the explicit "browsers without the Notifications API" guard + try/catch around `Notification.requestPermission`. Treats unsupported browsers as a distinct state with a clear "your browser doesn't support push notifications" message rather than rendering an enable button that throws on click. Added a double-submit guard via `requestingPerm` so a slow OS prompt can't be triggered twice.
+
+### Fixed (web) — new for this shift
+
+- **`AnonymizationToggle.handleAnonymize`** — handler was `setLoading(true) → try/catch → setLoading(false)` (outside finally). If the catch block itself threw, loading state stuck on forever and the school admin couldn't retry the anonymization without a page reload. Now uses a proper try/finally + double-submit guard, and surfaces the result via `toast.success` / `toast.error` for parity with the rest of the app.
+- **`TodoItemCard.handleComplete`** — set `completing` to true and awaited the parent's `onComplete` (Dashboard.handleCompleteFromTodo), but never reset on failure. The parent already reverts its cache, but the card's local state stayed true forever, leaving the check button stuck green-and-disabled. Now wraps the await in try/catch and resets `completing` on error, with a double-submit guard.
+- **`NotificationPermission.requestPermission`** (onboarding) — was calling `Notification.requestPermission()` with no environment check and no try/catch. In embedded webviews / older browsers / locked-down school Chromebooks, the Notification constructor doesn't exist (TypeError on first click) and even where it does, the call can throw. Now: feature-detect once at module load with an explicit "Notifications not supported" state, wrap the await in try/catch/finally with toasts, double-submit guard, and a "Asking your browser…" loading label.
+- **`Layout.jsx`** — incidentally lint-fixed a stray `motion` import (caught by `npm run lint`).
+
+### Why
+The Flashcards-from-notes tool covers a real student gap: turning class notes into a quizzable deck without manually authoring each card. It's the kind of thing that will get used the day before a quiz. The bug fixes are continued cleanup of regressions from the repo-migration snapshot — every shift seems to surface another batch.
+
+---
+
 ## [Unreleased] — 2026-04-26 (late-evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
