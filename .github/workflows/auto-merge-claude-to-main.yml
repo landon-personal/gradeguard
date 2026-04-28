@@ -1,0 +1,63 @@
+name: Auto-merge claude branches to main
+
+on:
+  push:
+    branches:
+      - 'claude/**'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-merge-main
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge ${{ github.ref_name }} into main
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -e
+          git fetch origin "$BRANCH"
+          if ! git merge --no-ff -m "Auto-merge $BRANCH into main" "origin/$BRANCH"; then
+            git merge --abort
+            echo "::error::Merge conflict on $BRANCH — main left untouched. Resolve manually and push to main, or rebase the branch onto main."
+            exit 1
+          fi
+
+      - name: Push to main (with retry)
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          for attempt in 1 2 3 4; do
+            if git push origin main; then
+              exit 0
+            fi
+            echo "Push failed (attempt $attempt) — refreshing main and re-merging"
+            git fetch origin main
+            git reset --hard origin/main
+            if ! git merge --no-ff -m "Auto-merge $BRANCH into main" "origin/$BRANCH"; then
+              git merge --abort
+              echo "::error::Conflict appeared on retry for $BRANCH"
+              exit 1
+            fi
+            sleep $((2 ** attempt))
+          done
+          echo "::error::Push to main failed after 4 retries"
+          exit 1
