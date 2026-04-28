@@ -6,6 +6,36 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-28 (early-AM shift)
+
+Pushed to `landon-personal/gradeguardnewsync` (auto-syncs to gradeguard.org). No new desktop installer this shift.
+
+### Added (web)
+- **12-week Activity Heatmap on the Achievements page** (`src/components/gamification/ActivityHeatmap.jsx`) — GitHub-style contribution graph below the XP bar. Each cell shades orange based on assignment completions that day, with hover tooltips for date + count and a header strip showing total completions, active days, and best day. Reinforces the same daily habit the streak counter rewards but turns it into a visible chart you can fill in.
+
+### Fixed (web) — critical user-blocking bugs
+- **Assignment delete was completely broken** (`src/pages/Assignments.jsx`) — the `ConfirmDialog` state and confirm handler were wired up but the dialog component itself was never imported or rendered. Clicking delete on an assignment card silently set state and nothing happened — the assignment couldn't be deleted from the UI at all. Mirrored Tests page's working pattern.
+- **`useNotifications.last_checked` used UTC date** — for users east of UTC (or anyone in the evening west of it), `today.toISOString().split('T')[0]` produced a string that didn't match the local "today," so the morning push was either skipped or fired twice depending on TZ. Same fix applied to **`SmartScanModal`** and **`StudySchedule`** prompts that told the AI "today is X" using the UTC date — could bias date interpretation by a day.
+
+### Fixed (web) — re-ported from prior shifts (lost again in repo migration)
+The repo migration left several handlers re-unwrapped. Re-applied the try/catch/finally + double-submit-guard + toast-on-error pattern to:
+- **`AssignmentForm.handleAISuggest`** + **`TestForm.handleAISuggest`** — AI subject/difficulty/time/topics suggestions on the new-item forms.
+- **`SmartScanModal.handleFile`** + **`handleClarifySubmit`** — photo-scan-an-agenda OCR flow now drops back to upload step on failure instead of getting stuck on the scan progress bar.
+- **`TodaysFocusCard`** is clickable again — tap navigates to Assignments or Tests, with chevron affordance, hover/press scale, and keyboard activation via Enter/Space + focus ring.
+
+### Fixed (web) — newly closed gaps
+- **`StudyRooms` create/join/invite** (`src/pages/StudyRooms.jsx`) — `handleCreate`, `handleJoin`, and the invite-link auto-join `useEffect` all wrapped network calls without try/catch. On failure the buttons stayed stuck on "Creating…" / "Joining…" with no feedback, and the invite useEffect leaked unhandled rejections. Now toasts/inline-error + double-submit guards.
+- **`RoomView.handleStartQuiz`** — InvokeLLM + StudyRoom.update wrapped; host's "Generating…" no longer stuck forever on a network blip.
+- **`RoomView.handleSubmit`** — was setting `setSubmitted(true)` *before* the create call, so a failure left the user thinking they submitted while their score was never saved. Now flips state only on success and surfaces a toast on failure.
+- **`MiniGames.TermGuesser`** — re-wrapped the term/hint InvokeLLM. Was the last unwrapped game; previously a network blip pinned it on the AI progress bar.
+- **`MoodCheckIn`** — `JSON.parse` of the saved-mood blob ran without a guard. A corrupt localStorage entry would crash the dashboard at mount; now falls back gracefully.
+- **`CMSCompliance.downloadDoc`** — try/finally without catch leaked unhandled rejections on document-generation failure while the download silently dropped. Now toasts. This is the doc school admins use during verification, so a silent failure was particularly bad.
+
+### Why
+Most of these are the same bug pattern (async handler + setLoading + await + setLoading without try/catch/finally) — re-applied where the migration regressed it, and closed several new instances. The Activity Heatmap is the one student-facing addition: prior shifts were entirely bug-fix-only, and the readme calls that out as the failure mode. The TZ fixes in particular matter for CMS — Charlotte is on Eastern Time, where evening UTC dates differ from local.
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
