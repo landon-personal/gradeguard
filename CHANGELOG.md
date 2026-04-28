@@ -6,6 +6,30 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-28 (early morning shift)
+
+Pushed to the web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web)
+- **Dashboard FocusTimer (Pomodoro)** — new widget on the Dashboard with 3 presets (Quick 15/3, Classic 25/5, Deep 50/10), an animated SVG progress ring, persisted preset/task selection, auto-prefilled task name from the most-urgent assignment/test, per-day session counter (localStorage), and a confetti + soft chime when a focus block ends. Pairs the AI study plan with an actionable timer students can run while they work.
+  - **Why:** the desktop app has had a tray Pomodoro since v1.1.0; the web app had nothing equivalent. Students using gradeguard.org on a Chromebook (CMS device fleet) now have a first-party focus session, with no setup, that lives next to their plan.
+- **Achievements ActivityHeatmap** — GitHub-style 12-week contribution grid showing daily completion counts. Header summary surfaces total completed, active days, and best-day count; per-cell tooltips show the full date and exact count.
+  - **Why:** the existing streak counter only shows the current run; students couldn't see the broader pattern of their study habits. Heatmap makes consistency tangible at a glance — important for the gamification loop and a nice visual for school admins reviewing student engagement.
+
+### Fixed (web)
+- **SmartScanModal `handleFile` + `handleClarifySubmit`** — neither had try/catch, so a failed `UploadFile` or `InvokeLLM` left the modal stuck on the scanning / clarifying spinner forever. Wrapped both with try/catch/finally + a visible red error pill on the upload step that surfaces what went wrong, plus a fallback in `handleClarifySubmit` that keeps the raw answer if date-parsing fails so the student isn't blocked.
+- **StudyAssistant `handleFileAttach`** — same stuck-spinner bug (`setUploadingFile(true)` was never cleared on a failed upload, no error feedback). Wrapped + double-submit guard + `toast.error`.
+- **AnonymizationToggle `handleAnonymize`** — `setLoading(false)` was outside try/catch, so a throw in the catch's `setResult` would leave the admin button stuck on "Anonymizing...". Switched to try/finally + double-submit guard.
+- **StudyAssistant `handleQuizResults`** — `QuizResult.create` was unwrapped, so a failed save threw and silently skipped the AI follow-up message AND the student got no indication their score wasn't saved. Wrapped with toast on failure.
+- **Layout `handleDismissWhatsNew`** — `StudentProfile.update` was unwrapped, so a failure would block the optional navigation that follows the modal dismiss. Now best-effort.
+- **useNotifications `checkAndNotify`** — `NotificationSettings.update` was unwrapped; a failure would skip the `last_checked` write AND propagate as an unhandled rejection through the `useCallback`. Now best-effort with a comment that we may re-notify on next mount.
+- **MoodCheckIn** — `JSON.parse` on the stored mood entry was unguarded; a corrupt entry crashed the dashboard mount. Wrapped + drop bad entries so the next mount succeeds.
+
+### Why
+Two real student-facing additions (FocusTimer + ActivityHeatmap) plus a sweep of stuck-spinner / silent-failure cases I found while reading neighbouring code. The Scan modal fix is the most user-visible: a flaky LLM call previously meant the student had to close and reopen the modal with no idea why.
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
