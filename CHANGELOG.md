@@ -6,6 +6,39 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-28 (evening shift)
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Study history insights for the Focus Timer 📈
+
+- **`src/components/dashboard/StudyHistoryInsights.jsx`** + integrated into `src/pages/FocusTimer.jsx` below today's stats.
+  - **12-week activity heatmap** — a GitHub-style 12 × 7 grid where each cell is a day, colored by the minutes studied (5 buckets: 0 / 1–15 / 16–30 / 31–60 / 60+). Hover any cell for the date + minutes. Month labels above the columns, weekday hints down the side, and a Less → More legend strip below.
+  - **Three mini stats** below the grid: the student's current streak (consecutive days with at least one logged minute, with a 🔥 once it's ≥ 3), active days out of 84, and the best day in the past 12 weeks (e.g. "1h 45m · Apr 21").
+  - **Top subjects · last 30 days** — horizontal bars showing the 5 subjects the student has spent the most minutes on, with session count and total time. If the student has never tagged a subject we surface a hint so they know subjects are even a thing they can fill in.
+  - **Empty state** for first-time users — until the first focus session is logged, the panel shows a friendly "your grid will start filling in here" placeholder instead of a blank space.
+  - All sourced from the existing `gg_focus_sessions` localStorage. **Zero new network, zero new storage, no PII.** Subjects stay on-device — the hint text reaffirms it.
+  - **Why:** the existing 7-day mini bar chart told a student about their week. This is the longer arc — "I studied at all on 41 of the last 84 days, and I'm a 5-day streak in" is the kind of feedback that drives habit formation. It's the visual reflection layer the Focus Timer needed and a natural sister panel to the Pomodoro itself. The subject breakdown also closes a loop: subjects students were already typing into the timer now feed back into a meaningful summary.
+
+### Fixed (web) — re-ports of prior shifts that regressed in the migration
+
+- **`Dashboard.handleCompleteFromTodo`** — the optimistic-revert pattern from a prior shift was lost. The function applied an optimistic UI update across `setTodoList`, sessionStorage, and both `queryClient.setQueryData` caches, then awaited `secureEntity().update()` with NO try/catch. A failed save left the item visually completed but not persisted — the next refresh would resurrect it. Re-ported: snapshots prior state across all 6 surfaces (todoList, both react-query caches, the `prevSignatureRef`, and both sessionStorage entries), wraps the update in try/catch, reverts everything on throw, and toasts. XP award stays non-fatal — caught separately and logged.
+- **`Dashboard.generateAIPlan`** — was back to try/finally only after the migration. A failed LLM call would bubble up uncaught, leave AIJob polling running (`stopAiJobPolling` never called on error), and show the user the empty "tap refresh" state with no error indicator and no refresh button visible until a `todoList` existed. Re-ported: catch sets `aiPlanError`, toasts, stops polling. Threaded `error` + `onRetry` props into `SmartTodoList`; its empty state now shows the error message + a Try-again button. Also guarded the success-path sessionStorage writes so a quota throw can't masquerade as an LLM failure.
+
+### Fixed (web) — new for this shift
+
+- **`Assignments.handleBulkCreate`** — the sequential `for/await` loop that created multiple parsed assignments (called from `SmartScanModal` and `AIAssignmentChat`) had NO try/catch. A single failed create — network blip, validation throw on one item — would bail the loop and silently lose every parsed assignment that came after, with no toast. Switched to `Promise.allSettled` and a status toast: full success, partial success ("3 of 5 saved"), or full failure. **Why:** SmartScan and AI Chat both intentionally produce batches — one bad item shouldn't punish the rest.
+- **`Assignments.handleStatusChange`** — `await awardPoints(...)` was unguarded; if gamification threw, the error bubbled out of the click handler even though the assignment had already been saved by the mutation above. Wrapped in try/catch (XP/badges are non-fatal). Also guarded the `nudge_shown` `localStorage.getItem`/`setItem` against private-mode / quota throws.
+- **`Dashboard.jsx` (`StudySchedule.jsx`)** — when a previous schedule was on screen and a Refresh / adjustment failed, the catch wrote `error` state but the error UI only rendered in the empty-state branch — so the failure was completely silent if the student had a schedule already. Added an inline error banner above the schedule with a Retry button. Also guarded `schedule.blocks.map` with `(... || [])` so a malformed LLM response can't crash the panel.
+- **`SmartTodoList.jsx`** — the daily feedback `localStorage.getItem`/`setItem` for the "How's this plan?" bar were unguarded. Safari private mode / sandboxed iframes throw on access, which would crash the whole Dashboard render because this runs at component init. Wrapped reads in a helper, swallowed quota/private errors on the write.
+- **`MoodCheckIn.jsx`** — the earlier fix wrapped `JSON.parse` in try/catch but the `localStorage.getItem` ABOVE it was still unguarded — Safari private mode raises SecurityError on the access itself. Wrapped the read so the effect bails cleanly instead of React silently swallowing the rejection (and the user's mood never restoring even when their saved entry is fine). Also wrapped the corrupt-entry `removeItem` in its own try/catch.
+- **`usePerformanceMode.js` + `PerformanceToggle.jsx`** — `readOverride()` runs inside `useState`'s lazy initializer for the performance-mode hook, which means it executes during the very first render of the whole app via `Layout`. An uncaught localStorage throw would crash the initial mount with a blank screen on Safari private mode / locked-down school Chromebooks. Wrapped both reads (the hook's and the toggle's local copy) and the `setLowPerformanceOverride` writes; the change event still fires so in-memory subscribers stay in sync.
+
+### Why
+The headline ship is the Study History Insights — it turns the Focus Timer from "a Pomodoro tool" into "a Pomodoro tool that gives a student a visceral sense of their own consistency over the past three months." The bug fixes are a mix of two regressions surfaced from the repo migration (handleCompleteFromTodo + generateAIPlan, both previously fixed) and several new hardening passes around localStorage — Safari private mode and locked-down school Chromebooks were one access call away from crashing initial app mount, which would have looked like a totally inscrutable blank screen during a CMS demo.
+
+---
+
 ## [Unreleased] — 2026-04-28 (afternoon shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
