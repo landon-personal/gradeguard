@@ -6,6 +6,43 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-28 (morning shift)
+
+Pushed straight to the web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Essay Outliner
+- **New `EssayOutliner` study tool in StudyAssistant** (`src/components/assistant/EssayOutliner.jsx`) — first new student-facing AI tool since the MiniGames trio. Type an essay topic + optional thesis, pick essay type (argumentative, persuasive, expository, narrative, compare/contrast, literary analysis) + grade level, and get back a complete structured outline:
+  - working title and refined thesis
+  - 3 distinct hook ideas
+  - intro roadmap
+  - 3–4 body paragraphs each with topic sentence, supporting points, evidence-to-look-for, and a transition
+  - counterargument + rebuttal (argumentative/persuasive only)
+  - conclusion sketch
+  - 3 writing tips
+- **Sections are collapsible** so the panel doesn't overwhelm the chat. Includes copy-to-clipboard, export-to-.txt, and "New outline" reset.
+- **Three discoverability paths:**
+  - "Writing Tools" card on the StudyAssistant empty state (visible to everyone)
+  - Compact "Essay outline" chip above the chat input (premium)
+  - "Outline this essay" link directly on essay-shaped assignment cards (Assignments page) — auto-prefills the topic from the assignment name
+- **Deep-link support**: `/StudyAssistant?tool=essay&topic=<text>` opens the outliner with the topic prefilled; URL params strip themselves after open.
+- The outliner uses `runTrackedStudyAssistantCall` so the AI progress bar shows the same staged status indicator as flashcards/quiz.
+- **Stays Socratic**: the prompt explicitly forbids writing the essay itself — it only structures, the student does the writing. Matches the rest of the AI tutor's stance.
+
+### Why
+Recent shifts have been bug-fix-only because of the repo migration regressions. The product needed a new visible AI helper. Essay help is the #1 unmet need for middle/high schoolers using GradeGuard — most assignments that have "essay/paper/report" in the name go un-aided by the existing flashcards-and-quizzes tooling. The outliner fills that gap without competing with the existing tools.
+
+### Fixed (web) — more re-ports of stuck-spinner regressions
+The repo migration is still leaking unwrapped async handlers. Found and patched another batch:
+
+- **AssignmentForm `handleAISuggest`** — wrapped InvokeLLM in try/catch/finally + toast.error + double-submit guard + optional-chaining on the result (a malformed model response was crashing setForm too).
+- **TestForm `handleAISuggest`** — same pattern. Topic/difficulty suggestions on new-test form.
+- **AssignmentAttachment `handleFileChange` + `handleRemove`** — wrapped file upload and removal in try/catch/finally. Stuck "Uploading..." with no toast was the failure mode.
+- **SmartScanModal `handleFile` + `handleClarifySubmit`** — wrapped photo-scan and clarification LLM calls in try/catch/finally with toast.error and recovery to the upload step. Plus a friendlier message when no assignments are detected (usually a blurry photo). Plus double-submit guards.
+- **RoomView `handleStartQuiz` + `handleSubmit`** — wrapped LLM call + room update + result create in try/catch/finally with toast.error + double-submit guards. Host pressing Start with a flaky LLM was stuck spinning; student submitting their quiz with a flaky entity create silently lost their score.
+- **MiniGames TermGuesser** — wrapped the term-generation LLM call in try/catch/finally with gameOver fallback. Stuck "Picking a term..." was the failure mode.
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
