@@ -33,9 +33,12 @@ Continued the bug pattern audit. Each of these had the same shape: `setLoading(t
 - **MiniGames MemoryMatch** — the match-tracking `setMatched(new Set([...matched, ...]))` used a stale snapshot; rapid-fire matches could drop earlier ones. Switch to functional state updates.
 - **useGamification.awardPoints** — wrap the whole points/badge-award flow internally and degrade gracefully on DB failure. Callers (handleStatusChange in Assignments, handleCompleteFromTodo in Dashboard) await this — an unhandled rejection here was crashing the post-completion flow. The assignment is already marked done by the time we get here, so soft-fail is correct.
 - **useNotifications** — wrap the non-essential `last_checked` DB write so a network blip doesn't fire an unhandled rejection from the effect.
+- **FloatingStreakCounter** — milestone confetti was firing on every page load for users with an existing 7+ day streak (the prevStreakRef was initialized to 0 from the empty assignments cache, then jumped to the real streak on data load, tripping the "milestone reached" condition). Persist last-celebrated milestone to localStorage so each milestone is celebrated exactly once.
+- **InviteLinkButton, FriendCodeCard** — `navigator.clipboard.writeText` was unwrapped. On insecure contexts or denied permissions the promise rejected and the user got no feedback. Add try/catch + toast fallbacks.
+- **SmartScanModal `handleFile` + `handleClarifySubmit`** — re-port (was fixed in [1.2.0] but regressed in the migration). The flagship "scan a photo of your agenda" flow had no try/catch around the upload + LLM scan — a single network blip stranded the student on the "Reading your planner…" progress bar forever. Now drops back to the upload step with a visible error banner so they can retry.
 
 ### Why
-Continuing the pattern bug sweep with CMS school verification active. Each of these is a "first impression" bug: a school admin or first-time student hits one transient failure and the app appears frozen. Worse, the `RoomView.handleSubmit` flow was actively misleading — it claimed "submitted" when nothing was saved, which would cause real grade/score disputes in a multi-player quiz.
+Continuing the pattern bug sweep with CMS school verification active. Each of these is a "first impression" bug: a school admin or first-time student hits one transient failure and the app appears frozen. Worse, the `RoomView.handleSubmit` flow was actively misleading — it claimed "submitted" when nothing was saved, which would cause real grade/score disputes in a multi-player quiz. SmartScan being a flagship feature meant a stranded scan would feel particularly broken.
 
 ---
 
