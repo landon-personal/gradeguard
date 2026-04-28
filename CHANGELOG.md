@@ -6,6 +6,39 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-28 (morning shift)
+
+Pushed straight to the web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Command Palette
+- **Global Cmd+K / Ctrl+K command palette** (`src/components/common/CommandPalette.jsx`) — press anywhere in the app to open a fast quick-action / quick-search overlay. Available via the new "Search…" button in the header (desktop) and a search-icon button (mobile).
+- **Quick actions** — Add assignment, Add test, Ask the AI tutor.
+- **Navigation** — every primary nav page (admin nav respected for school admins).
+- **Live results** — typeahead search across the student's pending assignments and upcoming tests, pulled from the React Query cache so it's instant. Results show subject + due date.
+- **Deep-linking** — picking an assignment/test navigates to the corresponding page with `?q=NAME`, and `Assignments.jsx` / `Tests.jsx` now read that param to pre-filter the search box.
+
+**Why:** the app has grown enough features (assignments, tests, study assistant, achievements, friends, quiz competition, admin) that students were hunting through nav. Command palette is the universal pattern for "I just want to get to X." Keyboard-power-user students will love it; mouse users still get a header button. Especially relevant for school-admin demos where speed = good first impression.
+
+### Fixed (web) — stuck-loading + silent-failure pattern sweep
+Continued the bug pattern audit. Each of these had the same shape: `setLoading(true)` / `setSaving(true)` / `setSubmitting(true)` followed by an unwrapped `await`. If the await threw, the loading state was never cleared, leaving the UI hung.
+
+- **AnonymizationToggle.handleAnonymize** (admin) — `setLoading(false)` was outside the try block. Move to finally + add double-submit guard. Worst-case before: an admin anonymizing students saw the spinner spin forever after a transient error and would assume nothing happened.
+- **AssignmentForm.handleAISuggest, TestForm.handleAISuggest** — the AI Progress bar got stuck if the LLM hiccupped. Wrap in try/catch/finally + toast + double-submit guard. (These had been fixed previously; the repo migration regressed them.)
+- **studyroom RoomView.handleStartQuiz** — host pressing "Start Quiz" got stuck on "generating" forever if the LLM call failed. Now toasts the error and re-enables the button.
+- **studyroom RoomView.handleSubmit** — `setSubmitted(true)` was set BEFORE the `await create()` call, so a network failure left the student staring at a "submitted!" screen even though their score never reached the server. Now rolls back on failure with a retry toast.
+- **TodoItemCard.handleComplete** — checkmark button stayed disabled forever if completion failed. Add finally.
+- **AssignmentAttachment.handleFileChange / handleRemove** — failed file uploads / removes left "Uploading…" stuck and silent. Wrap + toast + double-submit guard.
+- **StudyAssistant.handleQuizResults** — the `QuizResult.create` save was unwrapped, becoming an unhandled rejection that aborted the rest of the handler (no AI follow-up, no error feedback). Wrap.
+- **MoodCheckIn** — corrupted localStorage entry would `JSON.parse`-crash on dashboard mount. Wrap + clear bad entry.
+- **MiniGames MemoryMatch** — the match-tracking `setMatched(new Set([...matched, ...]))` used a stale snapshot; rapid-fire matches could drop earlier ones. Switch to functional state updates.
+- **useGamification.awardPoints** — wrap the whole points/badge-award flow internally and degrade gracefully on DB failure. Callers (handleStatusChange in Assignments, handleCompleteFromTodo in Dashboard) await this — an unhandled rejection here was crashing the post-completion flow. The assignment is already marked done by the time we get here, so soft-fail is correct.
+- **useNotifications** — wrap the non-essential `last_checked` DB write so a network blip doesn't fire an unhandled rejection from the effect.
+
+### Why
+Continuing the pattern bug sweep with CMS school verification active. Each of these is a "first impression" bug: a school admin or first-time student hits one transient failure and the app appears frozen. Worse, the `RoomView.handleSubmit` flow was actively misleading — it claimed "submitted" when nothing was saved, which would cause real grade/score disputes in a multi-player quiz.
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
