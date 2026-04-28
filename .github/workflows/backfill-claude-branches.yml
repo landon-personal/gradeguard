@@ -1,0 +1,59 @@
+name: Backfill — merge all claude/* branches into main
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (do not push to main)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge every claude/* branch (oldest first)
+        run: |
+          set -uo pipefail
+          git fetch --all --prune
+          merged=()
+          conflicted=()
+          while read -r branch; do
+            [ -z "$branch" ] && continue
+            case "$branch" in
+              claude/fix-base44-sync-*) echo "skip self: $branch"; continue ;;
+            esac
+            echo "=== $branch ==="
+            if git merge --no-ff -m "Backfill: merge $branch into main" "origin/$branch"; then
+              merged+=("$branch")
+            else
+              git merge --abort
+              conflicted+=("$branch")
+              echo "::warning::Conflict on $branch — skipped"
+            fi
+          done < <(git for-each-ref --sort=committerdate --format='%(refname:short)' 'refs/remotes/origin/claude/*' | sed 's|^origin/||')
+
+          echo
+          echo "## Summary"
+          echo "Merged (${#merged[@]}):"
+          printf '  - %s\n' "${merged[@]:-<none>}"
+          echo "Conflicted / skipped (${#conflicted[@]}):"
+          printf '  - %s\n' "${conflicted[@]:-<none>}"
+
+      - name: Push to main
+        if: ${{ inputs.dry_run == false }}
+        run: git push origin main
