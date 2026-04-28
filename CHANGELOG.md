@@ -6,6 +6,42 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-28 (early morning shift)
+
+Pushed straight to `landon-personal/gradeguardnewsync` (auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web)
+- **Grade Calculator on the Dashboard** — collapsible card under Today's Focus / Mood Check-In with two tools every middle/high school student actually wants:
+  - **"What I need"** — input current grade %, the test's weight as a % of the final grade, and your target → tells you the exact score you need on the upcoming test, with verdict ranging from "you're already there 🎉" to "not possible from this test alone" plus coaching text.
+  - **"My average"** — add any number of scores with optional weights → shows weighted average + letter grade (A through F). Falls back to a simple average if no weights are entered, and warns if weights don't sum to 100.
+  - Inputs persist per-user via localStorage so they don't have to re-enter when they come back. Pure client-side math — **no PII leaves the browser**, no backend calls, no AI dependency. CMS-safe by construction.
+
+  **Why:** Recent shifts were bug-fix-only. Students spend a real chunk of their lives Googling "what do I need on my final exam to get a B?" — putting that calculator one tap away on the dashboard turns GradeGuard from "study planner" into "study planner + the tool you'd open during a test prep session."
+
+### Fixed (web) — silent-failure / stuck-spinner sweep
+A second pass on the same pattern as the evening 04-26 shift, this time hitting handlers that previous passes missed:
+
+- **SmartScanModal `handleFile` + `handleClarifySubmit`** — both awaited UploadFile / InvokeLLM with no try/catch. A failed scan left the modal stuck on "Reading your planner…" forever. Now drops back to the upload step on failure with a friendly error banner ("try a clearer image or different lighting") and toasts on the AI date-parser failure path.
+  **Why:** SmartScan is one of the highest-friction onboarding actions for a new student — a stuck spinner here is a "this app is broken" first impression.
+- **MiniGames `TermGuesser`** — InvokeLLM call had no try/catch, unlike its siblings LightningRound and MemoryMatch. LLM hiccup left the game stuck on "Picking a term…" forever. Mirrors the sibling pattern now.
+- **Friends.jsx friend-code generation** — `secureEntity().update(...).then(...)` had no `.catch()`. A failed write left `friendCodeReady=false` and hid the entire friend code section indefinitely. Now logs and still flips the flag so the rest of the page renders.
+- **StudyRoom `RoomView` initial load** — both StudyRoom and StudyRoomResult filter promises had bare `.then()` chains. Network blip = room view spinning forever. Now catches both, surfaces a friendly "couldn't find / couldn't load this room" state with a Back button, and uses a cancellation flag so unmount during fetch is safe.
+- **StudyRoom `RoomView.handleStartQuiz`** — awaited InvokeLLM and StudyRoom update with no try/catch. If either threw, `generating` stayed true and the host's "Generate Quiz" button stuck on a spinner. Now wraps both, toasts on failure, double-submit guard, and handles the empty-questions case explicitly.
+- **StudyRoom `RoomView.handleSubmit`** — set `submitted=true`, then awaited two writes. On failure the student thought their answers were submitted but weren't, and their score was lost silently. Now rolls submitted back to false on error so they can retry, with a toast.
+- **`useGamification.awardPoints`** — any of the secureEntity create/update calls could throw and propagate to the caller. In Assignments `handleStatusChange` the throw blew past the 5-assignment Chrome extension nudge counter, so a transient XP failure permanently disabled the nudge. Now self-contained — XP is best-effort, not load-bearing.
+- **Optimistic-update rollback: `Tests.handleMarkDone`** — flipped a test to completed in the cache then fired updateMutation. On failure the cache stayed "completed" even though the server said no. Per-call onError now reverts the cache entry back to its previous status.
+- **Optimistic-update rollback: `Dashboard.handleCompleteFromTodo`** — far worse: removed the item from the AI plan, sessionStorage, AND the entity cache, then awaited the Test/Assignment update. On failure the item disappeared from the student's view forever (until refresh). Now snapshots all six pieces of state up front and rolls everything back on failure with a toast.
+- **`MoodCheckIn`** — JSON.parse on the saved mood entry had no try/catch. A corrupted localStorage value would crash the dashboard MoodCheckIn on every mount until the user manually cleared storage. Now wraps + self-heals by removing the bad entry.
+- **Clipboard hardening (4 sites)** — `navigator.clipboard.writeText()` throws in non-secure contexts (HTTP), permissions-blocked iframes, older Safari iOS versions, and when the page hasn't been recently focus-gestured. Across InviteLinkButton (StudyRooms), FriendCodeCard, AdminDashboard.copyCode, and CMSCompliance.copyText, an unhandled rejection silently broke "Copy" UX (FriendCodeCard even did optimistic toast.success on a failed copy, lying to the user). All four now await + try/catch + fall back to a toast spelling out the value.
+- **`pollAiJob` (StudyAssistant.jsx and Dashboard.jsx)** — the 800ms AI-job poller awaited a secureEntity filter with no try/catch. A single network blip during a long AI job silently killed the poller and froze the AI progress bar at whatever stage it was on, even though the job was still running server-side. Both pollers now catch + log + back off to a 2s retry — the loop self-heals.
+- **`StudyAssistant.handleFileAttach`** — `setUploadingFile(true)` → await UploadFile → `setUploadingFile(false)`, no try/catch. A failed upload left the attach button stuck in "Uploading…" forever. Now wraps in try/catch/finally with a toast.
+- **`AssignmentForm.handleAISuggest` + `TestForm.handleAISuggest`** — both set `aiLoading=true`, awaited InvokeLLM, then setAiLoading=false with no try/catch and no double-submit guard. A model timeout left the AI Suggest button spinning forever. Both now wrap in try/catch/finally, guard against double-tap, and toast a friendly fallback.
+
+### Why
+The bug-hunt theme this shift was every async handler that wasn't covered by the previous "stuck on Loading…" sweeps — clipboard calls, polling loops, optimistic updates without rollback, the gamification hook, and the two `handleAISuggest` buttons. Each one is the kind of paper-cut a school admin would notice during a CMS evaluation demo.
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
