@@ -6,6 +6,58 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-26 (late-evening shift)
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Fixed (web) — Dashboard
+- **`generateAIPlan`** — wrapped the LLM call in try/catch (was try/finally only). On failure the error bubbled up uncaught, AI job polling kept ticking, and the empty state told the user to "tap refresh" while the refresh button was hidden until a `todoList` existed. Added `aiPlanError` state, a friendly toast, and a "Try again" button on the SmartTodoList empty/error path.
+- **`handleCompleteFromTodo`** — applied an optimistic UI + react-query cache update, then `await secureEntity().update()` with no error handling. A failed save left the item visually completed but not persisted, so the next refresh resurrected it. Now snapshots prior state, reverts cache + plan + signatures on throw, and toasts. XP award is treated as non-fatal (assignment is already saved).
+
+### Fixed (web) — re-ports of prior shifts that were lost in the snapshot
+The new web canonical was seeded from a snapshot before several previous-shift fixes — re-applied:
+- **`SmartScanModal.handleFile` + `handleClarifySubmit`** — re-ported try/catch on photo-of-an-agenda OCR flow, fall back to the upload step on scan failure with a visible red banner, and double-submit guard on the clarify button.
+- **`AssignmentForm.handleAISuggest` + `TestForm.handleAISuggest`** — re-ported try/catch + double-submit guard. A failed call was leaving the AI Suggest button stuck on "..." forever.
+
+### Fixed (web) — Study Rooms
+- **`RoomView.handleStartQuiz`** — wrapped the LLM + secureEntity update in try/catch with a toast; added a `if (generating) return` guard. A network blip was leaving every member of the room staring at "Generating Quiz..." forever.
+- **`RoomView.handleSubmit`** — wrapped the result-create + status-update awaits, added a `if (submitted) return` guard, and reverts the optimistic submitted=true on save failure so the user isn't stuck on a leaderboard with no entry.
+- **Initial room load** — added `.catch()` toasts to the two top-of-mount `secureEntity().filter()` calls; previously they were silently swallowed leaving the spinner spinning.
+
+### Fixed (web) — small reliability / clipboard
+- **MoodCheckIn** — `JSON.parse` of localStorage was unguarded. A corrupt entry from an older build re-threw on every render. Wrapped in try/catch and clear the bad key.
+- **FriendChatPanel cooldown timer** — `setTimeout` id was never captured, so unmount during cooldown leaked a state-after-unmount warning. Stored in a ref and cleared on unmount and re-arm.
+- **FriendCodeCard `copyCode`** — fired `toast.success("Friend code copied!")` synchronously without awaiting `navigator.clipboard.writeText`. A denied or unavailable Clipboard API silently lied to the user. Now awaits, and toasts an error with a hint to long-press the code.
+- **InviteLinkButton `handleInvite`** — same: `await navigator.clipboard.writeText(url)` had no catch in the fall-through path when `navigator.share` was absent. Now toasts on failure.
+- **AdminDashboard `copyCode`** — same await + try/catch treatment for the school-code copy in the admin tools.
+- **CMSCompliance `downloadDoc`** — try/finally with no catch swallowed a failed `generateCMSDocument` server call. Now toasts and guards a missing `file_url`.
+- **CMSCompliance `copyText`** — same await + try/catch for the answer-snippet copy buttons.
+- **Friends friend-code auto-assign** — the first-visit `secureEntity("StudentProfile").update` for assigning a friend code had no `.catch()` — a failed update left `friendCodeReady=false` forever, hiding the "Your friend code" card with no recovery short of reload. Now still flips `friendCodeReady` on error so the rest of the page renders.
+
+### Fixed (web) — additional async hardening
+- **StudyRooms `handleCreate` + `handleJoin` + invite-link auto-join effect + leave callback** — all four awaited base44/secureEntity calls without try/catch. Network blips were stranding users on "Creating..." or "Joining...", or trapping them in a study room they thought they'd left (the selectedRoomId reset only ran after a successful await). Now all wrapped + double-submit guards on create/join + leave always resets selectedRoomId in a finally.
+- **MiniGames `TermGuesser`** — re-ported try/catch on the term-generation LLM call. LightningRound + MemoryMatch were already wrapped in the prior shift but TermGuesser was missed in the snapshot.
+- **Assignments `handleStatusChange` (XP path)** — wrap awardPoints in try/catch so a transient XP-service failure doesn't crash the completion path. XP is non-fatal — the assignment is already marked completed by the mutation.
+- **Assignments `handleBulkCreate`** — bulk create from SmartScan / chat could fail mid-loop, leaving partial data with no feedback. Now counts failures and toasts a clear "saved N of M" message.
+- **AnonymizationToggle `handleAnonymize`** — moved `setLoading(false)` into a finally and added a double-submit guard (was previously unreachable if the catch block itself threw).
+- **Dashboard + StudyAssistant `pollAiJob`** — wrapped the polling tick in try/catch. A transient poll error was producing an unhandled promise rejection AND silently stopping polling, leaving the user staring at a stuck progress bar even though the underlying job was still running on the server. Now retries with a slightly longer 1.5s delay.
+- **NotificationSettingsPanel `requestPerm`** — explicit guard for browsers without the Notifications API and try/catch around `Notification.requestPermission`.
+- **useNotifications `sendPush` + `checkAndNotify` last_checked write** — defensive try/catch around the Notification constructor (some embedded webviews accept the permission check but throw on construct) and the bookkeeping `secureEntity` update.
+
+### Fixed (web) — additional reliability
+- **StudyAssistant `handleFileAttach`** — file-attach upload had no try/catch; a failed UploadFile left the attach button stuck on a spinner with no toast. Wrapped + double-attach guard.
+- **BadgeUnlockToast nested fade-out timer** — the inner `setTimeout(onDone, 450)` for the exit animation wasn't cleared on unmount. Stored in a ref and cleared in the cleanup.
+- **InviteLinkButton "Copied" timer** — same unmount/re-arm pattern as FriendChatPanel — centralized the timer in a ref with armDoneTimer() and a useEffect cleanup.
+- **Tests `handleMarkDone`** — optimistic completion update had no revert on save failure (parity with the Dashboard `handleCompleteFromTodo` fix earlier this shift). Now snapshots the cache and restores it on mutation error.
+- **Onboarding `handleAuth`** — moved `setAuthLoading(false)` into a finally (was previously unreachable if the catch block itself threw) and added a double-submit guard.
+- **AdminDashboard `adminWrite`** — backend `adminWriteOperation` may return `{ error: "..." }` in a 200 response (matching the entityProxy TOKEN_EXPIRED pattern). Without checking, `useMutation` treated soft failures as successes — admin schools/anonymization toggles thought they saved when they hadn't. Now translates the error field into a thrown Error, and TOKEN_EXPIRED specifically clears storage and redirects to the session-expired flow (same shape as `secureEntities`).
+
+### Polish (web)
+- **SmartTodoList** — the "Generated Xm ago" stamp on the dashboard's AI plan card was computed at render time and never re-rendered. Added a 60s tick so the relative time stays accurate without a full re-fetch.
+- **Dashboard Refresh button** — added `aria-label` + `title` so the icon-only variant on small screens isn't a screen-reader dead spot.
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
