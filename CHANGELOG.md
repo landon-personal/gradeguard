@@ -6,6 +6,33 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-28 (morning shift)
+
+Pushed straight to the web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — feature
+- **Command palette (⌘K / Ctrl+K)** — new global keyboard shortcut opens a Linear-style command palette anywhere in the app. Jump to any page, Quick-add a new assignment or test, open the AI Study Assistant, toggle low-performance mode, or sign out — all without leaving the keyboard. Triggered by `⌘K`, `Ctrl+K`, `?`, or a new "Search ⌘K" pill in the desktop header. Mobile users still have the existing nav.
+  **Why:** GradeGuard had isolated keyboard shortcuts (`N` to add an assignment, `Esc` to close) but no unified entry point. A command palette is the single most-recognized "this app is fast" UX pattern for students who live on a Chromebook trackpad — they can now open the planner mid-class without ever lifting their hands off the keyboard.
+
+### Changed (web)
+- **FlashcardViewer** — added keyboard navigation: `←` / `→` to step between cards, `Space` or `F` to flip. The on-card hint now lists the shortcuts. **Why:** flipping every card with the mouse is genuinely tiring during a 50-card review session.
+- **AssignmentForm / TestForm** — autoFocus the Name input on open so typing starts immediately. **Why:** pressing `N` (or the new palette's "Add new assignment") opens the form, but the cursor used to land nowhere — a small annoyance that adds up across hundreds of adds.
+
+### Fixed (web)
+- **Quick add via in-app navigation** — Assignments and Tests pages used a one-shot mount effect to read `?new=1`, so navigating to `/Assignments?new=1` from a page that was already mounted (e.g. the new command palette, or the header Quick-add menu when already on Assignments) silently did nothing. Switched the deps to `location.search` so the form opens every time. **Why:** without this, the new command palette's #1 quick action was broken on the most common page to use it from.
+- **AIJob poller resilience** — Dashboard's AI plan generator and StudyAssistant's tracked LLM calls poll an `AIJob` row every 800 ms to update the status pills. A single `secureEntity().filter()` failure (network blip, transient 5xx) used to throw out of the polling async function and silently kill the loop while the UI kept showing "Generating…" forever. Now wraps the read in try/catch and reschedules a slightly slower retry. **Why:** the AI plan is the dashboard's flagship feature; a wifi hiccup mid-poll shouldn't strand the user on a fake spinner.
+- **TestCard crash on missing `test_date`** — `test.test_date.split()` blew up the entire Tests page if a server record came back without a date (e.g. an in-flight Smart Scan or a malformed import). Now uses `parseLocalDate` with a `hasValidDate` guard and renders a "No date set" badge. **Why:** one bad row no longer takes down the whole list.
+- **StudyRooms create / join / invite-link flows** — `handleCreate`, `handleJoin`, and the `?invite=…` useEffect all called `secureEntity` / `base44.functions.invoke` with no try/catch. A single failure left buttons stuck on "Creating…" / "Joining…" with no error visible. All three now wrap in try/catch + double-submit guards and surface `joinError`. **Why:** Quiz Competition is the most-shared social entry point — a friend's broken invite link used to freeze the page silently.
+- **RoomView `handleStartQuiz` + `handleSubmit`** — host's "Start quiz" button stuck on "Generating…" if InvokeLLM failed; player's score-submit silently swallowed errors and showed "Submitted!" even when the score never persisted. Both now toast on failure and restore button state. **Why:** worst-case before was a player thinking they finished a quiz and seeing nothing on the leaderboard.
+- **AnonymizationToggle** — moved `setLoading(false)` into a `finally` block + added a double-submit guard, so a synchronous error during `setResult` can't strand the admin button on "Anonymizing…". **Why:** student anonymization is CMS-compliance-critical; it can't have a stuck-spinner failure mode.
+- **MoodCheckIn JSON guard** — wrapped `JSON.parse` of the persisted mood selection in try/catch and clear the corrupted entry on failure. **Why:** previously a malformed localStorage value would crash the whole dashboard render on load.
+- **Layout lint cleanup** — removed unused `motion` import.
+
+### Why (overall)
+First shift in a while where the main work was actually a feature, not a bug-fix sweep — the recent shifts have all been recovery from the repo migration. Command palette is a small enough surface to ship safely in one shift but visible enough that a student opening the app today will notice. The bug fixes are filler around it; together they close several "stuck on Loading…" patterns the migration recovery missed in less-touched corners (Quiz Competition, AIJob polling, the form Quick-add path).
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
