@@ -6,6 +6,33 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-28 (morning shift)
+
+Pushed straight to the web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web)
+- **Essay Outliner** — new AI-powered tool. Student enters an essay topic and (optional) prompt/question, picks an essay type (5-paragraph, persuasive, narrative, expository, compare/contrast) and target length, and the AI generates a structured outline: thesis, intro hook + context + thesis statement, N body paragraphs (each with topic sentence + supporting points + evidence ideas + transition), conclusion (restate / synthesize / closing thought), and 2-3 writing tips. Accessible from a button on the Dashboard (next to Weekly Summary) and from the StudyAssistant empty state under a new "Writing Tools" section. Output is a SCAFFOLD only — no full prose is produced — so students still write the actual essay themselves, in keeping with the Socratic approach the rest of the StudyAssistant uses. Includes copy-to-clipboard, regenerate, and start-over actions.
+  **Why:** Essay writing is one of the most common assignments middle/high school students get and the existing AI tools (flashcards, quiz, mini games) didn't help with it. The outliner is a meaningful new student-facing feature that complements the test-prep tools already in place, and the explicit "scaffold not prose" framing aligns with CMS-friendly pedagogy.
+
+### Fixed (web)
+- **AssignmentAttachment** — `handleFileChange` and `handleRemove` had no try/catch. If `UploadFile` or `Assignment.update` threw, the UI sat on "Uploading…" forever. Now wrapped in try/catch/finally with `toast.error` on failure, plus double-submit guards on both handlers.
+  **Why:** Attaching a syllabus is a common operation; silently failing it means students lose work.
+- **navigator.clipboard.writeText hardening across 4 components** (`FriendCodeCard`, `InviteLinkButton`, `AdminDashboard.copyCode`, `CMSCompliance.copyText`) — `clipboard.writeText` returns a promise that can reject in non-secure contexts, in-app browsers, or when permissions are denied. Each call had been firing a "Copied!" indicator synchronously regardless of whether the copy actually succeeded. Now awaited inside try/catch with `toast.error` + manual-copy hint on failure.
+  **Why:** Quietly lying to the student that something was copied (when nothing was) is worse than a clear error.
+- **RoomView quiz handlers** — `handleStartQuiz` (host's quiz generation + room activation) and `handleSubmit` (player's score submission) both had unwrapped `await` chains. A failed LLM call left the host's UI stuck on "Generating" with the room never going active; a failed result-write left the player thinking they'd submitted when their score was lost. Both now use try/catch/finally with `toast.error` and the submit handler rolls back `setSubmitted` on failure so the player can retry. Added double-submit guards.
+  **Why:** Quiz Competitions are a flagship feature for engaged students; a failed start or save during a live battle is a breaking experience.
+- **SmartScanModal** — `handleFile` (UploadFile + InvokeLLM chain to extract assignments from a planner photo) and `handleClarifySubmit` (LLM date parser) had no try/catch. The modal had no error state at all — a failed scan left the user stuck on the progress bar with no recovery. Now wraps both in try/catch and adds a new `error` step in the modal that surfaces the message and offers "Try a different photo".
+  **Why:** Smart Scan is a marquee onboarding feature; an error with no recovery path means students give up before reaching value.
+- **AssignmentForm + TestForm AI Suggest** — both forms had a "Suggest with AI" button whose handler awaited `InvokeLLM` with no try/catch. On failure the button stayed in the loading state forever. Now wrapped in try/catch/finally with `toast.error` so students can fall back to filling fields manually. Added double-submit guards.
+- **StudyRooms create / join / leave** — `handleCreate`, `handleJoin`, and the room `onLeave` callback all awaited entity writes / function invokes with no error handling. Wrapped each in try/catch/finally with appropriate UI feedback (toast for create/leave, in-component error for join). Leave still clears `selectedRoomId` on failure so the user isn't trapped in a broken room view. Added double-submit guards.
+- **useGamification.awardPoints** — was a post-completion call whose rejection would propagate to callers (Dashboard's complete-from-todo flow), potentially breaking the assignment-complete UX even though the assignment itself had already succeeded. Wrapped the whole body in try/catch that returns `{ points: 0, newBadges: [] }` on failure so callers can't be broken by a transient stats-write error. The next completion will reconcile any missed points.
+- **MoodCheckIn** — `JSON.parse(localStorage[…])` was unprotected. A corrupted entry from an older format would crash the entire MoodCheckIn render and brick the dashboard. Now wrapped in try/catch that drops the bad entry and starts fresh.
+
+### Why (overall)
+Major focus this shift was shipping the Essay Outliner — first net-new student-facing feature in several shifts and the kind of thing a 13-year-old will actually open. The bug-fix pass continued the standing pattern audit (every unwrapped `await` after `setLoading(true)` is a "stuck on Loading…" waiting to happen) and closed seven more such handlers, several on critical paths (Smart Scan onboarding, Quiz Competition live play, attachment upload).
+
+---
+
 ## [Unreleased] — 2026-04-26 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
