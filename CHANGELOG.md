@@ -10,6 +10,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 Pushed straight to the web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
 
+### Added (web) — Keyboard shortcuts help modal
+- **`?` key opens a keyboard-shortcuts cheat-sheet** (`src/components/common/KeyboardShortcutsModal.jsx`). Lists ⌘K/Ctrl+K (search), `?` (this), `Esc` (close), and the existing `N` hotkey on Assignments/Tests pages. Also surfaced as "Keyboard shortcuts" inside the new command palette so mouse users can discover it.
+
+**Why:** the app keeps gaining keyboard shortcuts but there was no place to see them. Especially relevant now that ⌘K exists — students who notice it work the rest of the keyboard surface faster.
+
 ### Added (web) — Command Palette
 - **Global Cmd+K / Ctrl+K command palette** (`src/components/common/CommandPalette.jsx`) — press anywhere in the app to open a fast quick-action / quick-search overlay. Available via the new "Search…" button in the header (desktop) and a search-icon button (mobile).
 - **Quick actions** — Add assignment, Add test, Ask the AI tutor.
