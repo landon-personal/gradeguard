@@ -6,6 +6,48 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-29 (late-evening shift)
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Grade Goal Calculator on /Assignments 🎯
+
+- **`src/components/assignments/GradeGoalCalculator.jsx`** — collapsible per-subject panel that drops below `GradeStats` in the Completed section. For each subject with at least one graded assignment, a student picks a target letter (A+ through C) and a number of remaining assignments, and the panel computes the average they need on those remaining assignments to land at the target overall grade.
+- **`src/lib/gradeUtils.js`** — added `requiredAverage(currentAvg, currentCount, remaining, targetPct)` (closed-form solve assuming equal weights) + `feasibility()` tagger + `TARGET_OPTIONS` table (97 / 93 / 90 / 87 / 83 / 80 / 77 / 73 — A+ through C).
+- **Defaults that just work**: target = next letter band above current avg; remaining = autodetected pending-assignments count for that subject (clamped to ≥ 1, capped at 50).
+- **Feasibility tag** — adapts to *each student's own ceiling*: derived from the top quartile of their past graded assignments. A 95% required avg might be "Stretch goal 💪" for a kid who's hit 98s, but "Out of reach this term" for a kid whose ceiling is 88. Other tags: "Already locked in 🔒" (required ≤ 0), "On track ✅" (required ≤ current avg).
+- **Subjects sort worst-grade-first** — that's where goal-setting is the most useful intervention. The student doesn't have to scroll past their A subjects to find their C+.
+- **Privacy**: pure client-side. No grades leave the browser. No new network, no new storage, no PII. Footer reinforces this for the CMS-verification posture: *"Calculated on this device — your grades never leave the browser."*
+- **Why a student notices it:** every middle-and-high schooler with a target grade does this math in their head and gets it wrong, or asks a parent. Surfacing it inline next to GradeStats — with the answer already pre-computed for the natural defaults — turns a stressful pre-finals exercise into a one-glance decision. Also load-bearing for the "I'm freaking out about this class" anxiety pattern: showing "Stretch goal 💪" instead of a vague vibe lowers cortisol.
+
+### Fixed (web) — 4 `setTimeout`s that could `setState` after unmount
+
+Same ref-tracked-+-clearTimeout-on-unmount pattern the rest of the codebase uses. Each one fires setState; each one is reachable from a normal user flow (route change / panel close / game switch) within its window.
+
+- **`src/pages/FocusTimer.jsx`** — the two 600ms auto-suggest-break / auto-resume-work setTimeouts in `handleComplete` were bare. Navigating away from `/FocusTimer` in the 600ms after a Pomodoro completes setStates `mode + secondsLeft + showPicker` on the unmounted page. Tracked in `autoSwitchTimerRef` + cleared on unmount + cleared before each new schedule so back-to-back completions don't stack timers.
+- **`src/components/assistant/FlashcardViewer.jsx`** — `goTo()` fired a bare 50ms setTimeout that called `setIndex`. Closing the viewer mid-window setStates on unmount; rapid arrow-key navigation also stacked timers and could land on the wrong card.
+- **`src/components/friends/FriendChatPanel.jsx`** — the 3-second rate-limit cooldown setTimeout was bare and called `setCooldown(false)`. Closing the chat panel during the cooldown window setStates on the unmounted component; tap-spamming Send also stacked timers.
+- **`src/components/assistant/MiniGames.jsx`** (MemoryMatch) — the 600ms flip-back setTimeout called `setMatched + setFlipped`. Closing the game / switching game type during the 600ms window setStates on the unmounted component.
+
+### Fixed (web) — 9 unguarded `localStorage` reads/writes across the auth + load-bearing surfaces
+
+Continues the multi-shift CMS-verification "Safari private mode + sandboxed iframes" guard pass. Each unguarded read is a synchronous `SecurityError` on Safari Private (or a school-issued iPad in restricted profile mode). The page-mount ones white-screen the whole route; the in-handler ones surface a confusing `localStorage is not allowed` error toast instead of the existing 401 → redirect path.
+
+- **`src/Layout.jsx`** — guarded the two `getItem` reads at the top of Layout (wraps every protected route — was the highest-impact crash path remaining), the two `removeItem` calls in the TOKEN_EXPIRED query branch, plus the four `removeItem` calls in the desktop + mobile header logout buttons.
+- **`src/components/notifications/NotificationBell.jsx`** — the bare `getItem("gg_auth_token")` at component init. NotificationBell mounts in the header on every protected page.
+- **`src/components/layout/CommandPalette.jsx`** — the two `removeItem` calls inside `handleLogout`.
+- **`src/pages/StudyRooms.jsx`** — bare `getItem("gg_auth_token")` at component init.
+- **`src/pages/Onboarding.jsx`** — bare `getItem` inside the post-onboarding cross-subdomain redirect; falls through to the same-domain `navigate()` path on throw rather than dropping the redirect entirely.
+- **`src/pages/Home.jsx`** — both the `gg_user_email` + `gg_auth_token` reads that gate the auto-resume-session path, plus the two `removeItem` calls in the TOKEN_EXPIRED branch.
+- **`src/pages/Friends.jsx`** — the bare `getItem` inside `sendMessageMutation` + the bare `removeItem` pair in the `getFriendSharedWork` TOKEN_EXPIRED branch.
+- **`src/pages/Dashboard.jsx`** — the bare `getItem`/`setItem` on the tutorial-seen flag (first-load effect — would silently fail to persist + could throw inside the effect), the bare `getItem` on the AI-plan feedback key inside `generateAIPlan`, and the bare `getItem` on the auth token inside the `runStudyAssistantJob` invocation.
+- **`src/pages/StudyAssistant.jsx`** — bare `getItem` on the auth token inside the `runStudyAssistantJob` invocation; mirrors the Dashboard fix.
+
+### Why
+One real student-visible feature (Grade Goal Calculator — answers the universal "what do I need on the rest of the term to get an A?" question inline next to GradeStats, with feasibility calibrated to each student's own ceiling) and a tight bug-fix block continuing two CMS-verification-relevant patterns: **four** ref-less setTimeouts that could fire setState on unmounted components (route change / panel close / game switch all within their windows), and **nine** unguarded `localStorage` reads/writes that throw on Safari Private — including the highest-impact remaining one (`Layout.jsx` itself, which white-screens every protected page on throw). The auth-surface guard pass is now substantially complete: no more bare `getItem("gg_auth_token")` on render paths anywhere in the student-facing code.
+
+---
+
 ## [Unreleased] — 2026-04-29 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
