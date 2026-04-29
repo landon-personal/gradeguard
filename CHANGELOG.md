@@ -17,6 +17,23 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-04-29 18:30 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Subject Detail modal: tap a class in GradeTrends for the full picture 🔎
+
+- **`src/components/dashboard/SubjectDetailModal.jsx`** — new focused single-class drill-down. Tapping a row in the dashboard's `GradeTrends` panel used to deep-link out to `/Assignments?subject=X` and yank the student off the dashboard. Now it opens an inline modal that aggregates everything about that one class on one screen: large grade letter + average, the trend badge + a bigger sparkline (last 8 graded), four stat chips (Highest score, Lowest score, Pending count, Overdue count — Lowest goes rose if <70%, Overdue goes rose if >0), the 3 most recent scores (with each score colored to its letter grade), the next 3 upcoming tests for that class (rose-tinted rows with relative-day labels — "Today", "Tomorrow", "Tue", "Apr 30"), the next 5 pending assignments (overdue → today → upcoming, with overdue/today rows tinted rose/amber and an "Nd late" callout for overdue), and quick-action buttons that route to `/Assignments?subject=` and `/Tests?subject=`. Empty-state copy ("Nothing on the radar for X right now") when the class is fully cleared.
+- **`src/components/dashboard/GradeTrends.jsx`** — rows are now `<button type="button">`s that open the modal instead of `<Link>`s that navigate. Footer copy updated to "Tap a subject for the full picture · trends compare your recent half to your prior half." Now also accepts a `tests` prop and threads it into the modal.
+- **`src/pages/Dashboard.jsx`** — passes `activeTests` to `GradeTrends` so the modal can surface upcoming tests for the tapped subject (previously GradeTrends only consumed `assignments`).
+- **Privacy**: pure client-side derivation from already-fetched arrays. No new network, no new storage, no PII leaves the browser. Same posture as `WorkloadForecast` / `GradeTrends` / `TestPrepTimeline`.
+- **Why a student notices it:** the dashboard is hub-and-spoke — `GradeTrends` for momentum, `WorkloadForecast` for crunch, `DeadlineCalendar` for the month, `TestCard` for one test. Drilling into ONE class meant tapping a row, losing the dashboard, landing on a filtered list, then tapping back. The modal collapses "what's actually happening with my Math grade" into a single-tap focused view: scores, momentum, what's pending, what's coming, with one-click escapes to the filtered list pages when the student wants the long-form view. Pairs naturally with the existing GradeTrends sort order (down-trending classes surface first, you tap, you see what's pending and what's coming, you act).
+
+### Why
+One real student-visible feature (Subject Detail modal — turning the existing GradeTrends rows into a focused single-class deep-dive instead of a deep-link, threading tests through so it can show what's coming up too). No bug-fix block this shift — recent shifts have audited the codebase pretty thoroughly (timezone off-by-ones, unguarded `localStorage` reads, mutation `onError` handlers, double-submit guards on hot paths) and the patterns I scanned today (mutation handlers, `setLoading` wrappers, `setInterval` closures, `setTimeout` cleanups across `BadgeUnlockToast`, `FriendChatPanel`, `PomodoroWidget`, `FocusTimer`, `SmartScanModal`, `VocabQuizFromNotes`, `Achievements`, `AdminDashboard`) all came up clean. Time recovered went into adding the empty/edge states to the modal (no-radar copy, lowest-score color band, overdue/today row tinting, relative-day labels) instead of inventing a second feature.
+
+---
+
 ## [Unreleased] — 2026-04-29 16:30 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
