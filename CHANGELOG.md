@@ -17,6 +17,38 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-04-29 20:30 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Daily Check-out card: end-of-day reflection + tomorrow's priority 🌙
+
+- **`src/components/dashboard/DailyCheckout.jsx`** — new dashboard card that captures the end-of-day reflection loop the dashboard didn't have. The Sunday `WeeklyRecapModal` covered the once-a-week arc; the *daily* "what's tomorrow about" intention fell into the gap between today and next Sunday.
+- **Visibility rules** — self-hides when not relevant to avoid being a permanent dashboard tax. Renders if any of: it's after 4pm local, OR the student has already wrapped at least one assignment today, OR a check-out already exists for today (so they can edit), OR (mornings only) yesterday has a check-out whose priority should surface before they leave for school.
+- **Card body** — three-stat snapshot (items done today, focus minutes today, today's mood — pulling from existing `gg_focus_sessions_<date>` and `gg_mood_<email>` keys, no new schema), then a form: "Tomorrow's #1 priority" + optional "What went well today?". Once saved, collapses to two pill-style summary rows + an Edit button.
+- **Morning surface** — if the student didn't fully check out yet today but did yesterday, the card collapses to a single sunrise banner showing yesterday-evening's priority — first thing they see in the morning matches the intention they set the night before. Closes the daily loop.
+- **Privacy** — localStorage-only (`gg_checkout_<email>_YYYY-MM-DD`). No network, no PII off-device. Same posture as `MoodCheckIn` / `DailyGoalsCard` / focus sessions. All reads/writes guarded for Safari Private / sandboxed iframes.
+- **`src/pages/Dashboard.jsx`** — wired the card in below `ProgressCharts`, above the Weekly Summary entry point, so it sits in the natural "end of dashboard reading flow" position.
+- **Why a student notices it:** the dashboard had no end-of-day surface. Sunday recap is great for the longer arc; daily intention-setting is the simplest behavioral lever the dashboard didn't have. A 13-year-old who writes "Finish bio lab" tonight and sees it again at 7am tomorrow is running on yesterday's prefrontal cortex instead of today's groggy one.
+
+### Fixed (web) — Onboarding sign-in / sign-up swallowed Safari Private Mode storage error
+
+- **`src/pages/Onboarding.jsx`** — login + admin-signup + student-signup all did `localStorage.setItem("gg_auth_token", ...)` + `localStorage.setItem("gg_user_email", ...)` directly after a successful authenticate call. In Safari Private Browsing or a sandboxed iframe (school-portal preview, etc.) those throw synchronously, the surrounding try/catch caught it, and the user saw a generic "Something went wrong. Please try again." — implying the password was wrong when in fact the auth itself succeeded; only persistence was blocked. Wrapped all three setItem-pairs in a `persistAuth(token, email)` helper that surfaces a clear, actionable message: "This browser is blocking storage (Safari Private Browsing or a sandboxed iframe). Please open GradeGuard in a regular tab to sign in." The student now knows the actual problem and how to fix it instead of believing their credentials are bad.
+
+### Fixed (web) — Tests + Assignments + Onboarding form handlers missing double-submit guard on Enter-key
+
+A pattern audit across the form-submission paths. The Submit *button* was disabled via `isLoading` / `isPending`, but native form-Enter and `onKeyDown={e => e.key === "Enter" && ...}` handlers bypassed the disabled state until the React render cycle completed — a student typing fast and pressing Enter twice could fire two parallel mutations.
+
+- **`src/pages/Tests.jsx`** — `handleSubmit` now early-returns on `createMutation.isPending || updateMutation.isPending` before calling `mutate(...)`. Without the guard, two parallel `Test.create` requests could land, leaving a duplicate row.
+- **`src/pages/Assignments.jsx`** — same fix on `handleSubmit`. Same shape, same risk (duplicate `Assignment.create` rows).
+- **`src/pages/Onboarding.jsx`** — `handleAuth` early-returns on `authLoading`. The password input's Enter handler could fire two parallel `authenticateUser` calls, both eating the same password attempt against the server's per-account rate limiter; on signup the two parallel `signup` calls could race on the create.
+- **`src/components/assignments/AssignmentCard.jsx`** — `saveNote` early-returns on `savingNote`. Wired to both the Save button click and an Enter-key handler — without the guard, Enter-mashing could fire two parallel `Assignment.update(notes)` calls and (in flaky-network cases) regress the displayed note to the first response if the second errored. Same guard pattern used in `SharedNoteComposer` / `RoomView` / `WeeklySummaryButton`.
+
+### Why
+One real student-visible feature (Daily Check-out — the missing daily reflection card that sets tomorrow's intention tonight and surfaces it in the morning, closing the daily loop the Sunday WeeklyRecapModal couldn't reach), one real auth UX bug (Safari Private Mode misdiagnosed as bad credentials — particularly bad for a CMS-verified school app where staff demo it from sandboxed admin portals), and a tight pattern-audit fix block that closed the last few async form handlers missing double-submit guards on the Enter key path.
+
+---
+
 ## [Unreleased] — 2026-04-29 18:30 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
