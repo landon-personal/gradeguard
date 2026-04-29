@@ -6,9 +6,32 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## ❌ Rejected features (do not re-add)
+
+Features that have been built and reverted by the boss. **Future shifts must NOT re-add these, in any form.** If a similar idea seems useful, pick something else from the Feature Playbook instead.
+
+- **AI Essay Outliner** — reverted 2026-04-29.
+  - **What it was:** a `<EssayOutliner>` component in StudyAssistant that, given a topic + thesis + essay type + grade level, generated a complete structured outline (title, thesis, 3 hook ideas, intro roadmap, 3–4 body paragraphs each with topic sentence + supporting points + evidence ideas + transitions, optional counterargument, conclusion sketch, writing tips). Surfaced via a Writing Tools card on the empty StudyAssistant screen, a SuggestionChip, a bottom-bar pill, and an "Outline this essay" deep-link from any assignment whose name/notes matched essay-shaped keywords (`essay|paper|report|composition|thesis|dbq|frq|argument|persuasive|narrative|analysis|critique`).
+  - **Why rejected:** Landon flagged that some people view essay outlining as cheating. Even though the prompt says "Outline only — the student does the writing," generating thesis statements, topic sentences, evidence ideas, and counterarguments crosses the line for a study app pursuing CMS school verification. The perception alone is disqualifying.
+  - **Do not re-add as:** "essay scaffolder", "thesis helper", "paper planner", "writing brainstormer", "argument mapper", "counterargument finder", "outline this paper" link, an `?tool=essay` deep-link, an `essay_outline` study tool type, or any AI feature that produces thesis statements / topic sentences / paragraph plans for student-written essays from a topic prompt. Generic Socratic "ask me questions about your essay" chat is fine; *generating outline content* is not.
+
+---
+
 ## [Unreleased] — 2026-04-29 (late-evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Reverted (web) — AI Essay Outliner ❌
+
+Pulled the AI Essay Outliner that earlier shifts shipped (commits e322468, 1c9d108, 1db5ec0, 8c9e604, bb813f4, 686a3c7, 42df745 in `gradeguardnewsync`). Landon's call: even though the prompt explicitly said "Outline only — the student does the writing," generating the thesis, body-paragraph topic sentences, evidence ideas, and counterarguments crosses the line into "this is the essay" for the kind of school admin reviewing GradeGuard for CMS verification. The perception is the problem, not the prompt wording.
+
+**Removed:**
+- `src/components/assistant/EssayOutliner.jsx` (whole component)
+- `StudyAssistant.jsx` integration: `EssayOutliner` import, `showEssayOutliner` state, `openEssayOutliner` + `generateEssayOutline` functions, `?tool=essay`/`?topic=` deep-link `useEffect`, the "Writing Tools" card on the empty state, two render branches (`showEssayOutliner` block + `studyTool.type === "essay_outline"` branch), the bottom-bar "Essay outline" pill, the unused `PenSquare` lucide import
+- `SuggestionChips.jsx`: the `onEssayOutline` prop, the violet "Essay Outliner" chip, the unused `FileText` lucide import
+- `AssignmentCard.jsx`: the `ESSAY_KEYWORDS` regex, the `looksLikeEssay()` helper, the "Outline this essay" deep-link, the unused `PenSquare` lucide import
+
+**Future shifts: see the `❌ Rejected features (do not re-add)` section at the top of this file before adding any writing-help feature.**
 
 ### Added (web) — Grade Goal Calculator on /Assignments 🎯
 
