@@ -6,6 +6,48 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-29 (mid-morning shift)
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Calendar export (.ics) for assignments + tests 📅
+
+- **`src/lib/calendarExport.js`** — RFC 5545 iCalendar generator. Builds a `VCALENDAR` with one `VEVENT` per pending assignment (📝 prefix) and per upcoming test (🧪 prefix) as all-day events, plus a `VALARM` reminder 1 day before assignments / 2 days before tests. Properly escapes commas, semicolons, newlines, backslashes, folds long SUMMARY/DESCRIPTION lines at 75 octets. Skips completed items and rows missing the date.
+- **`src/components/common/CalendarExportButton.jsx`** — drop-in button that turns the .ics into a `Blob`, programmatically clicks a download anchor, defers `URL.revokeObjectURL` so Safari has time to grab the file, and toasts the count of exported items (or an "info" toast if nothing's eligible).
+- **Mounted on three surfaces:**
+  - **Dashboard** — re-attaches the previously orphaned `DeadlineCalendar` component (it lived in `src/components/dashboard/` but was never imported anywhere) underneath an "Upcoming deadlines / Export" row, only when the user has at least one pending item.
+  - **Assignments page header** — small `Export` button, scoped to assignments only.
+  - **Tests page header** — same, scoped to tests only.
+- **Privacy:** the `.ics` is generated entirely client-side. No assignment or test text leaves the browser. No external service involved. Safe under the CMS data-handling rules.
+- **Why:** students who use Google / Apple / Outlook Calendar can now ingest their GradeGuard workload in one click instead of typing it in twice. The reminder alarms inside the file mean the student gets a heads-up the day before an assignment and two days before a test even when GradeGuard isn't open. Recurring-value: once a student imports it, the entries stay in their calendar even if they don't open the app for a week.
+
+### Removed (web) — duplicate "Today's Wins" block on Dashboard
+
+- The Dashboard rendered the same Today's Wins section twice (once at `fadeUp(0.22)`, again at `fadeUp(0.32)`). Kept the first; the second slot now hosts the Deadline Calendar + Export button row.
+
+### Fixed (web) — Safari private-mode storage / blob crashes
+
+Seven unprotected localStorage / blob writes that would throw in Safari private browsing or hit storage quota.
+
+- **`src/Layout.jsx`** — cross-domain auth handoff (`gg_login` / `gg_token` URL params → `localStorage.setItem`) now wrapped in try/catch so a private-mode window falls back to the regular sign-in instead of crashing on first paint.
+- **`src/pages/FocusTimer.jsx`** — `saveTodaySessions()` wrapped; private mode keeps the in-memory list intact instead of throwing inside the timer-completion path.
+- **`src/components/dashboard/FloatingStreakCounter.jsx`** — both the `gg_streak_celebrated_*` getItem and setItem are now guarded; the milestone confetti effect can no longer crash the floating widget.
+- **`src/components/dashboard/PomodoroTimer.jsx`** — `gg_pomodoro_muted` getItem (in initial useState) + setItem (in toggleMute) wrapped.
+- **`src/pages/Friends.jsx`** — friend-message draft persistence (typing + onSend) wrapped in try/catch; drafts are best-effort.
+- **`src/components/assistant/EssayOutliner.jsx`** — `handleExport` now appends/removes the anchor from the body, defers `URL.revokeObjectURL` by 1 s, and wraps the whole thing in try/catch with a fallback toast pointing students at the Copy button.
+- **`src/components/assistant/FlashcardViewer.jsx`** — same Safari fix on the flashcard `.txt` export path.
+- **`src/pages/ChromeExtension.jsx`** — extension `.zip` builder now appends/removes the anchor + defers revoke, adds a double-submit guard, surfaces a toast on failure, and `resizeIcon` rejects on `img.onerror` so a non-image response can't hang the download forever.
+
+### Fixed (web) — `PomodoroWidget` no longer ambushes students with a permission prompt
+
+- **`src/components/dashboard/PomodoroWidget.jsx`** — clicking Start in default Notification permission state used to silently call `Notification.requestPermission()`, surprising students mid-flow and converting most into a "denied" decision (which then permanently broke the session-complete notification). The `fireNotification` helper already toast-falls-back when permission isn't granted, so removing the auto-request preserves the working notification path. Permission is still solicited deliberately from `NotificationSettingsPanel` / onboarding.
+- **`src/components/layout/FloatingPomodoro.jsx`** — wrapped its own `Notification.requestPermission()` (kept here because the floating panel is opt-in) in try/catch + `.catch(() => {})` so synchronous-throwing browsers and rejected promises can't bubble out as unhandled rejections.
+
+### Why
+Headline ship is calendar export — a recurring-value feature that closes a gap students have repeatedly hit ("how do I get this into my phone calendar?") and touches Dashboard, Assignments, and Tests in one go. The hygiene block clusters on Safari private-mode crashes and Notification API misuse — both quiet failure modes that bite real students with no signal in the dev console.
+
+---
+
 ## [Unreleased] — 2026-04-29 (early shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
