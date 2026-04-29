@@ -6,6 +6,42 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-29 (late-afternoon shift)
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — "Pick one for me" decision helper on AI Study Plan 🎲
+
+- **`src/components/dashboard/PickForMeButton.jsx`** — small pill button that drops above the to-do cards whenever there are 2+ items. Tap it and a focused spotlight modal reveals exactly ONE task to start on right now, with a plain-English "why this one" line and the original `priority_reason` from the AI plan.
+- **Re-roll** picks a different item (deterministic per session — uses a per-item hash + seed counter so re-rolls cycle through the top tier instead of repeating).
+- **Start with this** dismisses the modal; if the parent supplies an `onStart` prop it's called with the picked item, otherwise it dispatches the existing `gg:start-focus` event so the floating Pomodoro spins up at the default preset.
+- A tiny indigo/purple confetti pop fires on reveal — feels like a delightful nudge, not another button to grind through.
+- Wired into **`SmartTodoList.jsx`** between the daily-tip card and the to-do items, only when `sortedItems.length >= 2`.
+- **Privacy:** zero new network. Picker is pure client-side scoring. No PII, no AI call.
+- **Why:** the most common reason students bounce off a long AI plan is decision paralysis — five "High" tasks feels worse than no plan. Collapsing the choice to one task with a tiny serotonin hit is a known activation-energy hack, and it's the smallest possible UI surface that delivers it.
+
+### Fixed (web) — 4 unguarded storage reads/writes that crashed the dashboard in Safari private mode
+
+- **`src/pages/Dashboard.jsx`** — `sessionStorage.getItem("gg_ai_plan_sig")` inside the auto-replan effect threw in sandboxed iframes / private mode, killing the whole effect (so the Dashboard's "data changed → regenerate plan" loop silently broke). Now wrapped.
+- **`src/pages/Dashboard.jsx`** — `sessionStorage.setItem` of the generated plan + signature lived inside the outer `try/catch` of `generateAIPlan`. A quota or private-mode error showed the student a misleading "Couldn't generate your study plan" toast despite the plan being already in `setTodoList`. Wrapped the cache writes in their own try/catch so they fail silently.
+- **`src/components/dashboard/MoodCheckIn.jsx`** — the mount-time `localStorage.getItem` was unguarded; in Safari private mode the throw bubbled up and crashed the secondary row of the Dashboard.
+- **`src/pages/Friends.jsx`** — `localStorage.getItem` for the message-draft restore + `removeItem` after a successful send — same Safari private-mode footgun. Now guarded both reads + the post-send cleanup.
+
+### Fixed (web) — 3 `toISOString().split("T")[0]` date drift bugs in eastern timezones
+
+When a student is in GMT+ timezones (AU, NZ, Asia), local midnight is already the previous day in UTC, so `.toISOString().split("T")[0]` returns yesterday's date string. Three places had this footgun:
+
+- **`src/components/notifications/useNotifications.jsx`** — `last_checked` drifted vs `todayStr`, so reminder pushes could re-fire after a day was already marked checked, or skip a day entirely.
+- **`src/components/dashboard/StudySchedule.jsx`** — the AI prompt's `Today's date:` line was wrong by a day for late-evening users, shifting their schedule.
+- **`src/components/assignments/SmartScanModal.jsx`** — when a student scans a planner at night and it says "due Friday", the LLM's reference date was last week's Friday. The clarifying-answer date-parse prompt had the same bug.
+
+All three now build YYYY-MM-DD from local `getFullYear/Month/Date` — same pattern Dashboard.jsx already uses for its plan-feedback storage key.
+
+### Why
+One real student-visible feature (Pick one for me — combats decision paralysis on long AI plans) and a clustered fix sweep on two CMS-verification-relevant footguns: silent crashes in Safari private mode (any school-issued iPad in restricted profile mode) and date drift for non-US timezones (any non-North-American school deployment). Both classes of bug fail silently — the user never sees an error, just gets a slightly wrong app — which is exactly the kind of bug that's hardest to catch from telemetry.
+
+---
+
 ## [Unreleased] — 2026-04-29 (early-afternoon shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
