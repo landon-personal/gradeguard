@@ -17,6 +17,45 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-04-29 14:30 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — 14-day Workload Forecast strip on Dashboard 📊
+
+- **`src/components/dashboard/WorkloadForecast.jsx`** — new compact panel that drops between the Mood/DailyGoals/TodaysFocus row and `DeadlineCalendar`. Shows the next 14 days as a horizontal bar-strip — each day a colored intensity column (light → moderate → heavy → packed) with the day-of-week letter, day number, and the count of items due. Today gets an indigo ring + indigo number to anchor the eye.
+- **Smart one-line callout** above the strip — when at least one day in the forecast hits the *heavy* or *packed* band, the callout warns: `"Wednesday looks packed — 4 items due"` / `"Tomorrow looks heavy — 3 items due"`. When there's no crunch, it instead surfaces the longest 3+ day light run as a get-ahead window: `"Friday starts a 4-day light run — good time to get ahead"`. Fills both stress-states (warning vs. opportunity) without being naggy.
+- **Load model** is intentionally calibrated for a middle/high schooler — assignments are 1.0 (+0.5 if `weight === "perform"`, +0.3 if `difficulty === "hard"`), tests are 2.0 (+0.5 if `difficulty === "hard"`). One big perform-grade paper alone reads as "moderate"; two assignments + a hard test reads as "packed". Bands: <1.5 light · <3 moderate · <4.5 heavy · ≥4.5 packed.
+- **Auto-hides** when there's literally nothing on the next 14 days — empty state already lives elsewhere on the dashboard.
+- **Privacy**: pure client-side derivation from the already-fetched `assignments` + `activeTests` arrays. No new network, no new storage, no PII. Tooltips render via the native `title` attribute (no rendered list of names) — screenshot of the dashboard never includes assignment names beyond what's already in `DeadlineCalendar`.
+- **Why a student notices it:** the existing `DeadlineCalendar` is a month overview — great for "what's due when", terrible for "is next week going to crush me?". The 14-day strip makes the *density* visible at a glance, with the callout doing the cognitive work of spotting the worst day. Closes a real gap between "Today's Focus" (just the one most urgent item) and the month calendar (everything, all at once).
+
+### Fixed (web) — Tests with bad/missing `test_date` silently dropped from Dashboard `activeTests`
+
+- **`src/pages/Dashboard.jsx`** — `activeTests` filtered with `differenceInDays(parseLocalDate(t.test_date), today) >= 0`. `parseLocalDate` returns `Date(NaN)` on missing input → `differenceInDays` returns `NaN` → `NaN >= 0` is **false**. So any test whose date didn't parse vanished from EVERY dashboard surface that consumes `activeTests`: `NextTestCountdown`, `TodaysFocusCard`, `WeeklyRecapModal`, the new `WorkloadForecast`, the AI study-plan context — gone. Same shape as the bug fixed for the `/Tests` upcoming/past partition in an earlier shift. NaN-dates now pass through (rendered without a countdown by downstream components that already handle this case) so the student can spot and edit them.
+
+### Fixed (web) — Timezone off-by-one in "Due today" / "Overdue" counts on /Assignments
+
+- **`src/pages/Assignments.jsx`** — the header's `dueTodayCount` and `overdueCount` did `new Date(a.due_date)` followed by `.setHours(0,0,0,0)`. Looks safe, but `new Date("2026-04-29")` parses as UTC midnight; in EDT/EST that's 2026-04-28 20:00 local, and `.setHours(0,0,0,0)` zeroes to 2026-04-28 00:00 local — off by one day. Every US-timezone student saw their "Due today" count miscounted (today's items showing as overdue) and "Overdue" count inflated. Switched to `parseLocalDate` (which the rest of the codebase uses for the same reason) + guarded NaN dates.
+- **`src/components/assistant/PerformanceInsights.jsx`** — same `new Date(t.test_date)` / `new Date(a.due_date)` bug in the "Suggested Study Sessions" panel that surfaces inside StudyAssistant. Today's test would render with a `daysLeft` of `-1` and get filtered out of the urgent list. Switched to `parseLocalDate` + `Number.isFinite` guard so the panel doesn't include rows with bad dates.
+
+### Fixed (web) — Same timezone off-by-one in admin SchoolAnalytics + StudentList
+
+- **`src/components/admin/SchoolAnalytics.jsx`** — both the school-wide `overdueCount` headline metric and the per-student "at risk" classifier (`>= 3 overdue` rule) used `new Date(a.due_date) < today`. Same EDT/EST off-by-one — kids whose only overdue item was actually due that same day would tip into the "at risk" cohort and trigger the red alert badge. Switched to a shared `isOverdue(a)` helper that uses `parseLocalDate` + guards null/NaN.
+- **`src/components/admin/StudentList.jsx`** — the per-student `overdueCount` field that drives the "At Risk" badge had the same bug. Fixed identically.
+
+### Fixed (web) — 2 unguarded `localStorage.getItem("gg_auth_token")` reads on admin surfaces
+
+Continuation of the multi-shift Safari-Private-Mode auth-surface guard pass. These are the last two bare module-render reads of the auth token in the admin code paths.
+
+- **`src/pages/AdminDashboard.jsx`** — bare `localStorage.getItem("gg_auth_token")` at component init. Throws synchronously in Safari Private / sandboxed iframes (e.g. an admin previewing the dashboard inside a CMS staff portal that frames it). Wrapped in try/catch.
+- **`src/components/admin/AnonymizationToggle.jsx`** — same bare read; same fix. Also removed a duplicated `if (loading) return;` on the confirm path that was a no-op.
+
+### Why
+One real student-visible feature (Workload Forecast — the missing "is next week going to crush me?" surface, with a smart callout that does the cognitive work for the student) and a tight bug-fix block clustering on **one severity-bumped data-loss bug** (Dashboard's `activeTests` filter silently dropped tests with bad dates from every downstream surface — including the new feature itself, which is why I caught it), **four timezone off-by-one bugs** that miscounted overdue assignments in EDT/EST (two student-facing on /Assignments + StudyAssistant, two admin-facing that drove the "at risk" cohort calc), and the **last two unguarded `gg_auth_token` reads** on admin module-render paths. Auth-surface guard pass is essentially complete now — only the in-handler reads remain, which already short-circuit through their try/catch.
+
+---
+
 ## [Unreleased] — 2026-04-29 12:30 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
