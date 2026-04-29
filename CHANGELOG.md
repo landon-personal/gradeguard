@@ -6,6 +6,53 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-29 (evening shift)
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Sunday Weekly Recap modal 🎉
+
+- **`src/components/dashboard/WeeklyRecapModal.jsx`** — a celebratory week-of-progress overview that auto-shows on Sundays once per week (per email + per Mon-of-week storage gate).
+  - **Hero**: gradient header + confetti pop-on-reveal when the student has any work to celebrate ("Look at the week you just had 🎉").
+  - **4-stat tile grid**: Assignments done, Tests completed, Focus time (formatted hr/min), Active days (out of 7). Each tile gets its own gradient accent.
+  - **Top subjects this week**: blends completed assignment counts with Focus Timer minutes (focus minutes bucketed under "Focus time" so we never accidentally surface an assignment-name-shaped string as a subject).
+  - **Coming up next 7 days**: max 5 items, with TODAY / TOMORROW / "in Nd" labels. Items in 0-1d render in rose-500, otherwise gray. Mixes assignments (📝) and tests (🧪).
+  - **Empty state**: "A new week, a fresh start" with an inline encouragement line — no jarring "0 / 0 / 0".
+  - **Footer**: explicit "Calculated on this device — nothing about your week was sent to a server." Reinforces the CMS-verification privacy posture.
+- **Auto-show gate**: localStorage key `gg_weekly_recap_seen_<email>_<mondayKey>`. Reads/writes are guarded; Safari private mode silently no-ops the gate (modal would re-show, never crash).
+- **Manual entry point**: a new "This week's recap" pill button rendered next to the existing "Email weekly summary" button on the Dashboard footer — lets students re-open the recap any day of the week.
+- **Privacy**: pure client-side derivation. Reads existing assignments + tests from react-query cache + walks 7 days of `gg_focus_sessions_<date>` localStorage keys for focus minutes. No new network. No new storage other than the seen-gate. No PII.
+- **Why a student notices it:** Sunday-evening reflection is a known habit-formation lever. The AI Study Plan is *forward-looking* (what to do tomorrow); the Weekly Recap is *backward-looking* ("you actually did 6 hours of focus this week"). It closes a positive-feedback loop the dashboard didn't have. From the multi-shift "What I didn't get to" backlog (flagged 2026-04-28 22:20 UTC and again 2026-04-29 04:06 UTC).
+
+### Fixed (web) — Wired up the orphaned StudyHistoryInsights heatmap on /FocusTimer
+
+The 12-week activity heatmap + streak + top-subjects panel that the 2026-04-28 evening shift report claimed was shipped on `/FocusTimer` was actually **dead code on production**. `grep -rn StudyHistoryInsights src/` returned only the file that defined the component — zero callers. Students never saw the panel since the day it was written.
+
+- **`src/pages/FocusTimer.jsx`** — imported `StudyHistoryInsights` and mounted it at the bottom of the page below today's sessions strip.
+- Added `loadFocusHistory()` helper that walks the past 84 days of `gg_focus_sessions_<date>` localStorage keys (the actual storage shape used by the timer, which is per-day-keyed) and converts to the `{date, minutes, subject, completedAt}` flat list `StudyHistoryInsights` expects. Counts only `mode === "work"` — break sessions don't add to study minutes.
+- Per-day Safari-private-mode / quota throws are swallowed so partial history still renders for the days that loaded successfully.
+
+### Fixed (web) — 5 unguarded `localStorage` reads in the load-bearing auth surface
+
+Highest-impact crash class on production: a synchronous `SecurityError` from `localStorage.getItem` (Safari private mode + sandboxed iframes) at app mount **white-screens the whole app** instead of falling through to the existing "no session → redirect Home" path. The 2026-04-29 06:15 UTC shift report explicitly flagged `AuthGuard.jsx` as a known potential crash path; this clears the cluster.
+
+- **`src/hooks/useGGAuth.js`** — guarded the initial state lazy reads + the storage-event handler reads behind a `safeGet()` helper.
+- **`src/components/AuthGuard.jsx`** — guarded the two `getItem` reads at the top of `useAuth` (runs on every protected page mount) plus the two `removeItem` calls inside the `TOKEN_EXPIRED` branch.
+- **`src/lib/secureEntities.js`** — guarded `getToken()` (called on every `secureEntity().list/filter/create/update/delete`) plus the two `removeItem` calls in `handleExpired`. If the localStorage access throws, the call falls back to an unauthenticated request → server returns 401 → the existing TOKEN_EXPIRED branch redirects to login. Clean degradation.
+
+### Fixed (web) — 4 bare `setTimeout`s that could `setState` after unmount
+
+Same ref-tracked-+-clearTimeout-on-unmount pattern the rest of the codebase uses (PomodoroWidget / InviteLinkButton / WeeklySummaryButton / AIAssignmentChat after prior shifts).
+
+- **`src/components/gamification/BadgeUnlockToast.jsx`** — the inner `setTimeout(onDone, 450)` inside the exit-animation handoff was not tracked. Route change during the 450ms exit window fires `onDone` on a dead handle, advancing the badge queue past the unmount and dropping pending unlock animations on the next mount.
+- **`src/components/assistant/EssayOutliner.jsx`** — `handleCopy` fired a bare `setTimeout(setCopied(false), 1500)`. Closing the outliner mid-window setStates on unmount; clicking Copy twice in 1.5s also leaked timers and could clear the new "Copied!" state prematurely.
+- **`src/pages/Assignments.jsx`** — `handleStatusChange` fired bare setTimeouts for both the XP toast clear (2.5s) and the extension nudge (1.5s). Page-level unmount on navigation away from `/Assignments` leaked the timers. Multiple completes within the window also collided. Both now ref-tracked + cleared on unmount.
+
+### Why
+One real student-visible feature (Sunday Weekly Recap modal — Sunday-evening reflection lever pulled from the multi-shift backlog), one shipped-but-orphaned ship made real (StudyHistoryInsights heatmap finally rendering on `/FocusTimer`), and a tight cluster of two crash/UX bug classes: the Safari-private-mode auth-surface white-screen path (highest-impact, explicitly flagged in prior shift report) and four ref-less setTimeouts that could fire setState on unmounted components. Both bug classes were called out in prior reports as known follow-ups.
+
+---
+
 ## [Unreleased] — 2026-04-29 (late-afternoon shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
