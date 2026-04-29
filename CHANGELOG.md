@@ -6,6 +6,40 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-29 (early shift)
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Daily Goals card on the Dashboard 🎯
+
+- **`src/components/dashboard/DailyGoalsCard.jsx`** + slotted into the Dashboard secondary row alongside Mood + Today's Focus (which becomes a 3-up grid on `lg+` screens).
+  - Up to **3 personal daily goals** the student writes themselves — short text like "Read 20 minutes" or "Plan tomorrow." First-run shows 6 quick-pick suggestions (Read 20 minutes, Review flashcards, Plan tomorrow, 30 min focus session, No phone in bed, Stretch 5 minutes) plus a free-text input.
+  - **7-day check-off strip** under each goal — today is interactive (tap to toggle done), the prior 6 days render read-only so the streak history stays honest.
+  - **Per-goal streak counter** — once a goal hits a 2-day streak it gets a 🔥 Nd badge.
+  - Tap a goal's text to edit it inline (Enter saves, Escape cancels, empty save deletes). Pencil icon on hover for discoverability.
+  - Persisted to `localStorage` under `gg_daily_goals_<email>`. **Zero PII to the server**, history pruned to 90 days, quota / Safari-private-mode throws swallowed silently.
+  - **Why:** complements the AI study plan (which tells students what to do for assignments / tests today) with a personal-habit layer that doesn't overlap. The AI plan is *reactive* to coursework; Daily Goals is *proactive*. Habit-formation feedback at a glance — "I'm 5 days into my 'review flashcards' streak" — is the right sister surface to the existing 12-week study heatmap shipped last shift.
+
+### Added (web) — Background-tab notification when a focus session ends 🔔
+
+- **`src/pages/FocusTimer.jsx`** — fires a native `Notification("Focus session complete", ...)` when a focus or break timer finishes AND the tab is hidden. Closes the loop on the chime that gets silenced when the tab is muted by the browser. Only triggers if `Notification.permission === "granted"` — the timer never *requests* permission itself, so the existing onboarding / `NotificationSettingsPanel` flow stays the single permission prompt point. Feature-detected against `"Notification" in window`, so Safari iOS / embedded webviews fail silently. Tagged `gg-focus-timer` so a second session doesn't stack a duplicate notification.
+- **Why:** a real complaint pattern — students switch tabs to look something up, the timer expires, the tab title and chime are easy to miss, and the break / next-session never starts.
+
+### Fixed (web) — unmount + skeleton-forever cleanups
+
+- **`AIAssignmentChat.jsx`** — the 800 ms `setTimeout` after `ASSIGNMENTS_READY` (which calls `onAssignmentsFound` + `onClose`) had no ref / cleanup. If the modal unmounted during that window, the timer still ran the parent callback on a dead handle. Now stored in a `readyTimerRef`, plus a `mountedRef` short-circuit, plus a cleanup effect that clears the timer and calls `recognitionRef.current?.stop()` if the user closed mid-dictation.
+- **`WeeklySummaryButton.jsx`** — the 2.5 s "Summary sent!" auto-close `setTimeout` had no ref / cleanup. Closing the modal manually before it elapsed and re-opening would still trigger a delayed `setRecipientEmail("")` + `setRecipientName("")` on the new instance. Stored in a `closeTimerRef`, cleared by both the new `closeModal` helper and an unmount cleanup.
+- **`Achievements.jsx`** — gated the page on `(!profile || !stats)`, so a brand-new account with no `GamificationStats` record yet (it's seeded server-side on the first XP award) was stuck on the loading skeleton forever — visible after sign-up, completely opaque. Now distinguishes `statsLoading` from no-record-yet and renders a real empty state with a "Earn your first badge" nudge: a friendly copy block with the same gradient hero so the page never silently disappears.
+
+### Hygiene (web)
+
+- **8 stale unused imports cleaned up** via `npm run lint:fix` — `Layout.jsx` (`setLowPerformanceOverride`), `FloatingStreakCounter.jsx` (`startOfDay`), `NotificationPermission.jsx` (`toast`), `Dashboard.jsx` (`Timer`, `Play`, `DeadlineCalendar`), `StudyAssistant.jsx` (`VocabQuizFromNotes`), `StudyRooms.jsx` (`toast`). Pure linter cleanup, no behavior change.
+
+### Why
+The headline ship is the Daily Goals card. The two prior shifts shipped the Focus Timer (afternoon) and the Study History Insights (evening); a personal-goal layer is the natural third leg of that trio — habit formation over a longer horizon than the Pomodoro and a more intimate one than the AI plan. The background-tab notification + Achievements empty-state fix are both items called out in prior shift reports as outstanding follow-ups.
+
+---
+
 ## [Unreleased] — 2026-04-28 (evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
