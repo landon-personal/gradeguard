@@ -17,6 +17,37 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-04-29 22:00 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Subject Effort vs Grade card: surface classes getting cold focus time 📊
+
+- **`src/components/dashboard/SubjectEffortIndex.jsx`** — new dashboard surface that closes the loop between the data the student already has on their dashboard (their grades per class, via `subjectGradeStats(assignments)`) and the data the focus timer was already producing on their device (per-day `gg_focus_sessions_<date>` localStorage entries with the picked assignment's name on each work session). The dashboard had a heatmap of *when* they studied (`StudyHistoryInsights`) and a leaderboard-of-grades (`GradeTrends`), but nothing connecting *what they studied* to *what their grade is*. A 13-year-old who's been pouring focus minutes into Math while their History grade slips never sees that imbalance until the report card.
+- **Mapping** — for each work-mode session in the past 7 days, the assignment-name tag on the session matches back to an `Assignment.subject` (or `"Study: <test name>"` matches back to a `Test.subject` for FocusTimer testId deep-links). Untagged sessions (no picker selection) bucket as `"Other"`. 25 min per work session via `FOCUS_MODE_MINUTES.work` in `FocusTimer.jsx`.
+- **Layout** — sorted with the lowest-graded subject on top so the rebalance signal is the first row in the eye-line. Each row: subject name + grade letter/% (color-coded via existing `gradeColor`) on the left, a colored progress bar (cold rose → light amber → solid indigo → deep emerald) sized by minutes, and the formatted minutes + band tag on the right.
+- **Smart callout** above the rows surfaces the highest-leverage action: lowest-grade class with <15 min this week + grade <85% = warn ("X is your lowest grade right now — and it's gotten the least focus time this week. A 25-min session today would change that."); one subject hogging >70% of the week's focus while another sits cold = warn ("Most of your focus this week went to X. Try sliding one session toward Y."); zero focus this week = info nudge; otherwise = good ("Focus time is spread across your classes — nice balance this week.").
+- **`src/pages/Dashboard.jsx`** — wired between `GradeTrends` and `ProgressCharts`, threading the same `assignments` + `activeTests` props the rest of the dashboard already has.
+- **Privacy**: pure client-side derivation. No new network, no new storage, no PII off-device — same posture as `WorkloadForecast` / `GradeTrends` / `SubjectDetailModal`. Auto-hides for brand-new accounts (no completed grades AND no focus sessions in the past 7 days). All localStorage reads guarded for Safari Private Mode / sandboxed iframes.
+- **Why a student notices it:** the Pomodoro habit was already paying off — sessions get logged silently and the heatmap proves consistency. But "I studied a lot this week" and "I studied the *right* things this week" are different questions. This card makes the second one visible: the class you're worst at being the class you avoided is the most common procrastination shape, and surfacing it next to the grade trend is what makes the next 25-min session a Pomodoro on History instead of yet another one on the class you already feel good about.
+
+### Fixed (web) — Orphaned inline note editor on AssignmentCard had no UI to enter edit mode
+
+- **`src/components/assignments/AssignmentCard.jsx`** — the component had `editingNote`, `noteDraft`, and `savingNote` state hooks, a complete `saveNote` async handler (with double-submit guard, secureEntity update, error rollback, and the previously-shipped finally-block fix), and a `handleNoteKeyDown` for Enter-to-save / Esc-to-cancel — but no UI ever flipped `editingNote` to `true`. The notes paragraph rendered as a plain non-clickable `<p>` and there was no "Add a note" affordance on assignments without notes. Prior shifts had patched the saveNote handler thinking it was reachable; in fact it was completely dead code from an in-progress feature that had never been finished. Now: the existing notes turn into a clickable button (subtle hover state) that flips to a textarea + Save/Cancel buttons, and assignments without notes get an "+ Add a note" link beneath the status select. Disabled-state propagated through the textarea + buttons during the save round-trip.
+
+### Fixed (web) — Tests + Assignments N-key shortcut wiped editing state mid-form
+
+- **`src/pages/Tests.jsx`**, **`src/pages/Assignments.jsx`** — the page-level `keydown` handler fired `setEditingTest(null)` (resp. `setEditingAssignment(null)`) and `setShowForm(true)` on every "N" / "n" press outside an input/textarea/contentEditable — *including while the form modal was already open and the student was mid-edit*. The form would silently re-mount as a *new* test/assignment, wiping whatever they'd typed. Mirror `showForm` into a ref (the listener is registered once with `[]` deps so a normal closure-capture would be stale forever) and early-return the N branch when the form is open. Esc still closes either way.
+
+### Fixed (web) — `TodaysFocusCard` could render literal "Due in NaN days"
+
+- **`src/components/dashboard/TodaysFocusCard.jsx`** — items missing or with an unparseable `due_date` / `test_date` ran through `parseLocalDate` → `NaN` `Date`, `differenceInDays` → `NaN`, urgency score → `NaN`. The sort comparator (`b.urgency - a.urgency`) returns `NaN` for those rows, which `Array.prototype.sort` treats as `0` — so a NaN-urgency row could occasionally land at the top, where `daysLabel` rendered as the literal string `"Due in NaN days"` (because `NaN < 0`, `NaN === 0`, and `NaN === 1` all coerce to `false`). Same shape as the timezone / NaN-date bugs that prior shifts cleaned up on `Dashboard.activeTests`, `/Tests` upcoming partition, `PerformanceInsights.urgentTests`, and `SchoolAnalytics`. Drop items without a parseable date before scoring; the global Assignments / Tests pages still render those rows so the student can spot and fix the missing date.
+
+### Why
+One real student-visible feature (Subject Effort vs Grade — the missing dashboard surface that connects the focus-timer data the dashboard was already producing to the grade data the dashboard was already showing, with a smart rebalance callout that names a specific subject the student should put their next session into), a long-overdue UX patch (the AssignmentCard inline note editor had every state hook and handler in place but no UI to trigger them — students could read existing notes but couldn't edit them or add new ones from the card; prior bug-fix shifts had patched a saveNote handler nobody could actually call), and a tight bug-fix block on three orthogonal classes: a **page-level keyboard-shortcut closure bug** that wiped form state mid-edit on the two heaviest CRUD pages, and a **NaN-date rendering bug** in TodaysFocusCard that could surface literal "Due in NaN days" copy if a missing-date row won the unstable urgency sort.
+
+---
+
 ## [Unreleased] — 2026-04-29 20:30 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
