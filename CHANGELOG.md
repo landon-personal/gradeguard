@@ -17,6 +17,35 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-04-29 16:30 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Test Prep Timeline inline on every TestCard 📅
+
+- **`src/lib/testPrep.js`** — new pure helper `buildPrepTimeline(test, today)` that returns a date-by-date study schedule from today to the test day. Phases (`groundwork → firstPass → targeted → recall → practice → finalReview → testDay`) are mapped per-day from the days-until-test offset, with the **test's `difficulty` shifting heavier phases earlier for hard tests and compressing for easy ones**. Each entry carries a one-line student-facing tip ("Skim every topic once. Mark anything that feels fuzzy."), a calibrated suggested duration in minutes, and an intensity band (light · focused · heavy) for the visual bar. Shows up to 10 days ending on the test; if the test is more than 10 days out, today is rendered as an anchor row above the visible window with a "earlier days are optional warm-up" note. Also exports `totalPrepMinutes(timeline)` for the header.
+- **`src/components/tests/TestPrepTimeline.jsx`** — the visual. Renders the day list as a vertical strip — date column on the left (Today / Tomorrow / "Tue Apr 30"), a small intensity bar (emerald → amber → rose) in the middle, and the phase label + tip + minute count + intensity tag on the right. Today's row gets a white card with an indigo ring so it pops. Each phase has its own lucide icon (Layers, ListChecks, BrainCog, Repeat, Clipboard, Moon, Sparkles).
+- **`src/components/tests/TestCard.jsx`** — wired in. The card now exposes a third action button next to "Flashcards" / "Practice Quiz" — a purple **"Prep plan ▾"** toggle that expands the timeline inline. Only renders for non-completed, future-dated tests (so it's hidden for "no date set" / past / completed rows where it'd be meaningless).
+- **Privacy**: pure client-side derivation. No network. No storage. No PII. Only fields used: `test.test_date`, `test.difficulty`. Same posture as `WorkloadForecast` / `GradeTrends`.
+- **Why a student notices it:** the existing test surfaces (`/Tests` upcoming list, `NextTestCountdown`, the AI quiz / flashcard generators) tell a 13-year-old *that* a test is coming and offer ways to drill the content. None tell them *what to do today, then tomorrow, then the day after that*. "Spread it out" is what teachers preach and almost no kid actually does — surfacing a real schedule, calibrated to the test's difficulty, makes spaced practice the path of least resistance instead of cramming the night before. Pairs naturally with the existing Practice Quiz / Flashcards buttons (later-phase days literally name them in the tip — "Quiz yourself on flashcards").
+
+### Fixed (web) — `RoomView` "Submit Quiz" button never showed the Saving… spinner; `setSubmitted` ran on failure
+
+- **`src/components/studyroom/RoomView.jsx`** — the submit handler had a `submitting` state declared, the button rendered `submitting ? "Saving…" : "Submit Quiz"` and disabled itself with `submitting`, but `setSubmitting(true)` was **never called anywhere** in the file. So clicking Submit was instant-silent, no feedback, while the network round-trip + leaderboard refetch ran. On a slow connection a kid would tap the button two or three times. Compounded by `setSubmitted(true)` running BEFORE the await, so if the network round-trip failed the score wasn't saved but the UI was already in the "submitted" state — no recourse to retry. Now: `setSubmitting(true)` at start, `setSubmitted(true)` only after the create resolves, `setSubmitting(false)` in `finally`. The double-submit guard at the top now also gates on `submitting`.
+
+### Fixed (web) — Early-completion XP bonus + counter never fired for US-timezone students
+
+- **`src/components/gamification/BadgeDefinitions.jsx`**, **`src/components/gamification/useGamification.jsx`** — both checked `new Date() < new Date(assignment.due_date)` to decide if a completion was "early" and worth the +8 XP `BONUS_EARLY` and the `early_completions` stat tick. `new Date("2026-04-29")` parses as UTC midnight, which in EDT/EST is 2026-04-28 20:00 local — so the "early" threshold was effectively *8pm the day BEFORE the due date* for US students. A student turning a paper in 9am the day it's due **never** got early credit; one finishing at 9pm the night before barely got it. Same family of timezone off-by-one bugs the prior shifts cleaned up on `/Assignments`, `/Tests`, `SchoolAnalytics`, `StudentList`, and `Dashboard.activeTests`. Now uses `parseLocalDate` + a `Number.isFinite` guard so the threshold is local midnight of the due date.
+
+### Fixed (web) — `GradeStats` rendered a literal "undefined" subject row for assignments missing a subject
+
+- **`src/lib/gradeUtils.js`** — `subjectGradeStats` keyed `bySubject[a.subject]`. Older entities (or assignments imported via the natural-language Add path before subject-clarification was solid) can have `subject === null`. JS coerces that to the string `"undefined"`, so the `Grade Averages` panel rendered a row literally labeled "undefined" with the student's avg+letter. Bucketed under `"Other"` instead, matching what `subjectGradeTrends` already did. Display-only; no data shape change.
+
+### Why
+One real student-visible feature (Test Prep Timeline — the missing "what should I actually do each day before this test?" surface, calibrated by difficulty, surfaced inline on every future-dated TestCard) and a tight bug-fix block clustering on three real classes: a **dead-state UX bug** (RoomView's never-set `submitting` state hid feedback on the most-tapped quiz-battle button), a **gamification timezone off-by-one** that quietly disabled the early-completion XP bonus for the entire US student base, and a **legacy-data display glitch** (literal "undefined" subject row in GradeStats).
+
+---
+
 ## [Unreleased] — 2026-04-29 14:30 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
