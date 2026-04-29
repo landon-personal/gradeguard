@@ -17,6 +17,51 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-04-29 12:30 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Grade trends sparkline panel on Dashboard 📈
+
+- **`src/components/dashboard/GradeTrends.jsx`** — new compact panel that drops between `NextTestCountdown` / `DeadlineCalendar` and `ProgressCharts`. For each subject with at least one graded assignment, the row shows: subject name + current letter grade + average %, a colored badge ("Trending up +N", "Trending down -N", "Steady", or "Just getting started"), and a small SVG sparkline of the last up-to-8 graded assignments (chronological, with a labeled endpoint marker for the most recent score).
+- **`src/lib/gradeUtils.js`** — added `subjectGradeTrends(assignments)`. Sorts each subject's graded entries chronologically (preferring `due_date`, falling back to `updated_date` / `created_date`) and derives a trend label by comparing the recent-half avg to the prior-half avg of the series. ≥+3 pts → up, ≤-3 → down, in between → steady, fewer than 3 graded → "new".
+- **Sort order** — surfaces what needs the most attention first: trending-down subjects, then steady-but-below-80%, then trending-up, then steady high. Helps a kid spot a slipping class before scrolling past their A.
+- **Click-to-filter** — each row is a `<Link>` to `/Assignments?subject=ENCODED_NAME`. The new `?subject=` query param on `Assignments.jsx` (and on `Tests.jsx` to keep the deep-link contract symmetric) snaps the existing subject `Select` filter on mount and strips itself from the URL like the existing `?new=1` / `?filter=overdue` params do. Closes the loop: see a subject trending down → tap → land on the filtered assignments list for that subject in one motion.
+- **Privacy**: pure client-side derivation. No grades leave the browser. No new network. No new storage. No PII. Footer reinforces the CMS-verification posture.
+- **Why a student notices it:** every existing grade surface (`GradeStats`, `ProgressCharts`, `GradeGoalCalculator`) is a *snapshot*. None of them tell a 13-year-old whether their grade is climbing or sliding — the most actionable piece of information for "should I worry about this class right now?". The trend badge collapses that into a 3-word read at a glance, and the sparkline makes it visual. Fills a real gap in the dashboard's grade story.
+
+### Fixed (web) — Tests with bad/missing `test_date` silently disappeared from /Tests
+
+- **`src/pages/Tests.jsx`** — the `upcomingTests` and `pastTests` filters both used `differenceInDays(parseLocalDate(t.test_date), today)` and compared against `>= 0` / `< 0`. `parseLocalDate` returns `Date(NaN)` on missing input → `differenceInDays` returns `NaN` → `NaN >= 0` and `NaN < 0` are both **false**. So any test row whose date didn't parse vanished from BOTH lists — student loses sight of it entirely. Now: tests with a non-parseable date land in `upcoming` (so the student can spot them and edit the date), only completed tests with a valid past date go into `past`. `TestCard.jsx` already renders a "No date set" badge for these.
+
+### Fixed (web) — `AssignmentCard` rendered "Due in NaN days" for assignments with no due_date
+
+- **`src/components/assignments/AssignmentCard.jsx`** — `dueDateText()` had no case for `Number.isNaN(daysUntilDue)`. Empty / missing `due_date` fell through to the default branch and rendered "Due in NaN days". Now returns "No due date set" when `due_date` is missing or unparseable.
+
+### Fixed (web) — 7 unguarded `localStorage` reads/writes on Home + Onboarding
+
+Continuation of the multi-shift Safari-Private-Mode auth-surface guard pass. These live on the **landing pages** — Home is the cross-domain login handoff target and the public marketing page; Onboarding handles the post-signup redirect. An unguarded synchronous `SecurityError` on any of these throws the entire `useEffect` and partially-mutates the URL, leaving the student stuck mid-handoff with no console to look at.
+
+- **`src/pages/Home.jsx`** — guarded the two `removeItem`s in the `?logout=1` branch, the two `setItem`s in the `?gg_login=...` cross-domain handoff branch, the two `removeItem`s in the `else if (!profile?.user_email)` post-getStudentProfile branch, the two `removeItem`s in the `.catch(() => …)` handler, and the trailing `removeItem` in the stale-session fallback.
+- **`src/pages/Onboarding.jsx`** — guarded the bare `setItem("gg_user_email", ggLogin)` plus the bare `getItem("gg_user_email")` in the post-onboarding redirect `useEffect`. (The 4 `setItem`s deeper in `handleAuthSubmit` are inside an outer try/catch already.)
+
+### Fixed (web) — `CMSCompliance` doc-download button silently failed on server error
+
+- **`src/pages/CMSCompliance.jsx`** — `downloadDoc()` had a `try {…} finally { setDownloading(null); }` block but **no `catch`**. If `base44.functions.invoke('generateCMSDocument', …)` rejected (network blip / server 500), the rejection propagated unhandled and the button just popped back to "Download" with no toast. Admin clicks it again and again, no docs ever come down. Added `catch` → `toast.error(…)`. Also added a `if (downloading) return;` double-click guard at the top.
+
+### Fixed (web) — 2 `console.warn` calls leaked AIJob error objects to the production console
+
+- **`src/pages/StudyAssistant.jsx`**, **`src/pages/Dashboard.jsx`** — both `pollAiJob` retry paths logged `console.warn("AIJob poll failed, retrying:", err)`. The `err` object's request `config` carries the API URL which embeds the student's email (`?user_email=...` style query params on the underlying base44 call). Every transient network blip on the AI Study Plan poll cadence dumped a student email into the production browser console. CMS-verification posture: the production console should never receive student-context URLs. Replaced both with `} catch {` so the err object isn't logged at all.
+
+### Fixed (web) — `subjectGradeTrends` used wrong field name + suboptimal date
+
+- **`src/lib/gradeUtils.js`** — initial draft of the helper used `a.title` for the sparkline tooltip; the `Assignment` entity actually uses `name`. Every tooltip would have rendered the literal string "Assignment" instead of the actual assignment title. Also changed the chronological-sort key from `updated_date || created_date || due_date` to `due_date || updated_date || created_date` — `updated_date` updates whenever the row is touched (e.g. when the grade is entered), so back-fill grading scrambled the sparkline order. `due_date` reflects when the work was actually owed, which is what a student means by "my grade trend over the term".
+
+### Why
+One real student-visible feature (Grade Trends panel — fills the missing "is my grade climbing or sliding?" surface, and is wired through to a one-click drill-down into the filtered Assignments page for that subject) and a tight bug-fix block clustering on three real classes: **two correctness bugs** that silently dropped data from view (NaN-date tests vanishing, `AssignmentCard` rendering "Due in NaN days"), **seven Safari-private-mode crash paths** on the landing surfaces (Home + Onboarding), one **silent-error UX trap** (`CMSCompliance` doc download), and **two CMS-verification PII leaks** (AIJob `console.warn` calls dumping request URLs with student email). Plus a self-caught regression on the new feature itself (wrong field name + wrong chrono key) before the panel even renders for a real student.
+
+---
+
 ## [Unreleased] — 2026-04-29 (late-evening shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
