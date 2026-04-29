@@ -6,6 +6,47 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
+## [Unreleased] — 2026-04-29 (early-afternoon shift)
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Drag-to-reorder pending assignments ✋
+
+- **`src/pages/Assignments.jsx`** — new "Manual (drag to reorder)" sort option. When selected, the pending grid drops to a single column with a `<GripVertical />` drag handle on each card; reordering immediately persists to `localStorage` under `gg_assignment_order_<email>`.
+- The order is restored on next visit; if a saved order exists, the page boots into manual sort so the student's chosen order is respected.
+- Items hidden by the active filter/search are preserved at the tail of the saved order, so reordering only the visible subset doesn't drop them on filter clear.
+- Completed items always render in due-soon order regardless of sort — the manual queue is for active work.
+- Persistence is best-effort; Safari private mode / quota throws are swallowed silently. No PII; never leaves the browser.
+- **Why:** has been on the "What I didn't get to" list for 3+ consecutive shifts. `@hello-pangea/dnd` was already in deps with zero usages — finally putting it to work. Students can now pin "essay due Friday" to the top instead of letting due-date sort bury it under a Monday quiz.
+
+### Added (web) — NextTestCountdown banner on Dashboard ⏳
+
+- **`src/components/dashboard/NextTestCountdown.jsx`** — compact gradient banner that surfaces the soonest non-completed test if it falls within the next 14 days.
+  - Color shifts warmer as the date gets closer: indigo → amber → orange → red. A test in 1 day visually reads urgent in a way a calendar dot doesn't.
+  - Day label switches between TODAY / TOMORROW / N DAYS for natural language at a glance.
+  - Includes test name, subject, topics (truncated for narrow screens), and a "Study with AI" link straight into the existing StudyAssistant quiz tool for that test.
+  - Renders only when there's an upcoming test within the window — otherwise nothing.
+- **Mounted on the Dashboard** between the AI plan and the Today's Wins block (`fadeUp(0.18)`), where it's the first thing a student sees after the hero.
+- **Privacy:** fully derived from already-fetched test rows; no new network, no new storage, no PII.
+- **Why:** also from "What I didn't get to" — the deadline calendar is dense and multi-event; this is single-test, big-number psychological urgency. Tests have a different cognitive weight than assignments and deserve a distinct surface.
+
+### Fixed (web) — 3 quiet UX bugs
+
+- **`src/pages/Assignments.jsx`** — completed-list pagination was a no-op. The render mapped the full `completed` array instead of the computed `visibleCompleted` slice, so clicking "Load more" bumped a counter that nothing read; every completed assignment was on screen the entire time. Heavy-completer accounts ate the layout cost (and DOM work) of rendering hundreds of cards. Now respects the slice.
+- **`src/components/studyroom/InviteLinkButton.jsx`** — clipboard fallback branch fired a bare `setTimeout(setDone(false), 1800)` instead of using the existing `doneTimerRef`-backed `armDoneTimer` helper, so a second click during the 1.8 s window leaked a timer and could `setState` after unmount. Both branches now go through `armDoneTimer`.
+- **`src/pages/Tests.jsx`** — `handleMarkDone` optimistically flipped a test to `completed` but had no rollback path. If the server write failed, the card stayed visually completed until the next refetch — student thinks they marked it done, server still has it pending, GradeGuard's reminders keep firing. Snapshots the prior status and restores it from a per-call `onError`.
+
+### Hygiene (web) — 11 `console.error` scrubs + Home session-toast cleanup
+
+- Continuing the prior shift's CMS-verification pass: removed `console.error("X failed:", err)` calls from 11 student-facing files. Each call already has a `toast.error()` for the user; the console line is pure dev noise that ships error objects (potentially carrying request URLs with student email) to the browser console. Files: `useNotifications.jsx`, `NotificationSettingsPanel.jsx`, `useGamification.jsx`, `MiniGames.jsx`, `EssayOutliner.jsx`, `VocabQuizFromNotes.jsx`, `TestForm.jsx`, `AssignmentForm.jsx`, `SmartScanModal.jsx` (3 paths), `AssignmentAttachment.jsx` (2 paths), `RoomView.jsx` (2 paths), `StudyAssistant.jsx` (quiz-result save).
+- Left intact: `ErrorBoundary` (debug context is the whole point), `AuthContext` (auth bug-hunting needs it), admin panel files (admin sees these consoles intentionally).
+- **`src/pages/Home.jsx`** — the session-expired toast was a bare 500 ms `setTimeout` inside the mount effect with no cleanup path. Tracked the timer + cleared it in the existing cleanup function so navigating away mid-window doesn't fire a "Your session expired" toast on the page the user just landed on (flagged in the 2026-04-29 00:15 UTC shift report).
+
+### Why
+Two real student-visible features (drag-to-reorder + NextTestCountdown), both pulled directly from the "What I didn't get to" backlog the prior three shifts left. The bug-fix block clusters on three actually-misleading UX bugs (broken pagination, leaked timer, lost rollback) — not just defensive try/catch wrappers. Hygiene continues the CMS-verification quiet-down on `console.error` so the production console stops leaking error objects with student-context URLs.
+
+---
+
 ## [Unreleased] — 2026-04-29 (mid-morning shift)
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
