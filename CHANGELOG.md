@@ -17,6 +17,41 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-04-30 08:15 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Weekly Focus Goal panel on the FocusTimer page 🎯
+
+- **`src/lib/focusGoal.js`** (new) — pure-localStorage helpers (`loadGoal`, `saveGoal`, `clampGoal`, `thisWeekMinutes`, `daysLeftInWeek`, `startOfWeek`) keyed by a single `gg_focus_weekly_goal_minutes` integer. Default goal 100 min/week (~4 Pomodoros). Clamped to 25–1500 so a corrupted localStorage value or a misclick can't set a 0-minute or 9999-minute goal. `thisWeekMinutes` accepts the same `{date, minutes, completedAt}` shape that `FocusTimer.loadFocusHistory()` produces — Sunday-anchored week boundary to match the heatmap. Same defensive Safari-Private-Mode pattern as `flashcardMastery` / `testConfidence` — every read/write is guarded so the page still renders if storage is blocked.
+- **`src/pages/FocusTimer.jsx`** — new "Weekly focus goal" card slotted between Today's sessions and the Tip line. Shows `<minutes-this-week> / <goal> min this week` with a percentage badge on the right and a 2px gradient progress bar (indigo→violet under goal, emerald→teal once goal hit). Below: a per-day pace hint — "Y min to go · ~Z min/day across the next N days" — so a student behind on their goal sees exactly how much per day gets them across the line. On Saturday (last day of the week) the hint flips to "X min today gets you there". Once the goal is hit, a single `toast.success` fires (latched in a ref so it doesn't re-fire every re-render after) and the bar / number / icon flip emerald with a Trophy icon.
+- **Inline edit** — a small Edit pencil in the panel header swaps the readout for a `<input type="number" min=25 max=1500 step=5>` plus Save/Cancel buttons. Enter saves, Escape cancels. Save round-trips through `clampGoal` so an out-of-range value clamps to 25 or 1500 instead of being rejected.
+- **Privacy** — pure client-side. No new network calls, no server-side state, no PII off-device. Same posture as DailyCheckout / SessionIntentions / SubjectEffortIndex / TestConfidenceRater / FlashcardMastery.
+- **Why a student notices it:** the FocusTimer page already showed today's session dots and a 12-week heatmap, but had no weekly cadence in between — students who set themselves a "study X hours this week" target had to count dots manually across 7 days. Now a target is one click to set, the bar fills as they go, the hint tells them what they need per day to hit it, and crossing the line gets a visible celebration. Connects daily focus sessions to a weekly goal that mirrors how students actually plan ("I want to do Y hours of math this week").
+  - feat: a0bd50e
+
+### Added (web) — KeyboardShortcutsModal now documents the shortcuts that actually exist ⌨️
+
+- **`src/components/common/KeyboardShortcutsModal.jsx`** — the `?` help modal listed only `⌘K`, `?`, `Esc`, and `N`, but the app already had a bunch of unadvertised shortcuts. Added two new sections — **Flashcards** (Space/F flip, ←/→ step, G "Got it" after flip, R "Need review" after flip) and **Focus Timer (when floating Pomodoro open)** (Space start/pause). Also added the global **P** toggle for the floating Pomodoro to the Anywhere section. Now `?` is a real shortcuts cheat-sheet instead of a teaser.
+  - feat: f608623
+
+### Fixed (web) — `AssignmentCard.saveNote` had no unmount guard
+
+- **`src/components/assignments/AssignmentCard.jsx`** — flagged in the prior shift's "what I didn't get to". The note-edit save fires `secureEntity("Assignment").update()` which is a multi-second round-trip, and the card unmounts in three realistic ways mid-await: the assignment gets deleted from another card, the parent's status / search / subject filter changes and the card scrolls out of the list, or the user taps the parent tab to switch. All three left `setSavingNote(false)` and `setEditingNote(false)` (and the catch-branch `setNoteDraft` + `toast.error`) firing on the unmounted card — the standard React warning + a tiny memory leak. Added the standard `mountedRef` gate before every `setState` after the await and in the finally block.
+  - fix: aec8408
+
+### Fixed (web) — `AssignmentAttachment.handleRemove` never set the `removing` state
+
+- **`src/components/assignments/AssignmentAttachment.jsx`** — the component declared `const [removing, setRemoving] = useState(false)` and read `removing` in JSX (button `disabled={removing}` and the `Loader2` spinner), but `handleRemove` never called `setRemoving(true)` / `setRemoving(false)`. So clicking the X to detach a syllabus / notes file never showed the spinner, never disabled the button, and a fast double-click sent two `update(... attachment_url: null ...)` requests in flight. Added the standard `if (removing) return;` double-submit guard at the top, `setRemoving(true)` before the await, and `setRemoving(false)` in a new finally block.
+  - fix: 801d5b2
+
+### Perf (web) — `StudySchedule.jsx` `dataKey` re-stringified every render
+
+- **`src/components/dashboard/StudySchedule.jsx`** — flagged in the prior shift's "what I didn't get to". The `dataKey` (used to detect when assignments / tests have changed and re-fire the schedule LLM call) was a `JSON.stringify` of every assignment field + every test field, computed unconditionally on every Dashboard render. While the student was typing into the adjustment textarea (which re-renders on every keystroke), this fired up to 60+ times in a row for a student with 30+ assignments — wasted work that showed up in profiling. Wrapped the JSON.stringify in `useMemo([assignments, tests])` so it only recomputes when the underlying data actually changes.
+  - perf: eb48d5b
+
+---
+
 ## [Unreleased] — 2026-04-30 06:20 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
