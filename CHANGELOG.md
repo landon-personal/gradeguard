@@ -17,6 +17,38 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-04-30 20:01 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Fixed (web) — 🚨 `SubjectDetailModal` crashed on open (missing `Target` lucide import)
+
+- **`src/components/dashboard/SubjectDetailModal.jsx`** — the goal pill in the modal's `DialogTitle` (line 302) referenced `<Target />` but `Target` was never added to the lucide-react import block when the per-subject weekly goals feature shipped 2 shifts ago in `cc98dee`. Every student who tapped a row in `GradeTrends` / `SubjectEffortIndex` would have hit a React `Element type is invalid: expected a string... but got: undefined` crash on the modal open path. Fix: added `Target` to the imports.
+- **Why this slipped lint + build:** the project's eslint config has `react/jsx-uses-vars: "error"` (which marks imported vars as used) but no `no-undef` rule, so a JSX-referenced *undefined* var fails neither `npm run lint` nor `npm run build` (Vite's `logLevel: "error"` swallows the JSX warning). Caught by a sibling sweep that compares `<Target />` usages across `src/components` + `src/pages` against each file's lucide-react import block.
+  - fix: 3b0c665 · https://github.com/landon-personal/gradeguardnewsync/commit/3b0c665
+
+### Added (web) — `SubjectGoalsStrip` on the Dashboard 🎯
+
+- **`src/pages/Dashboard.jsx`** — flagged in the prior shift's "what I didn't get to" #4. The strip shipped on /FocusTimer last shift, but the Dashboard's WeeklyFocusGoalMini sits next to where the strip naturally fits, and a student opening the homepage had no per-subject lag signal until they navigated to the focus page. Wired the existing `SubjectGoalsStrip` between `WeeklyFocusGoalMini` and `WorkloadForecast` so the focus-goal stack is contiguous (mini-bar → per-subject strip → forecast). Suggest deep-links to `/FocusTimer?assignmentId=<id>` (uses the URL preselect path the timer page already honors), with a graceful fallback that still navigates to /FocusTimer + toasts a hint when the most-behind subject has no pending assignment. Renders nothing when no subject goals are set, so a student who hasn't engaged with the per-subject goals feature never sees the strip — same gate the FocusTimer copy of the strip uses.
+  - feat: 4829331 · https://github.com/landon-personal/gradeguardnewsync/commit/4829331
+
+### Added (web) — Inline "Set goal" / progress chip on every `GradeTrends` row 🎯
+
+- **`src/components/dashboard/GradeTrends.jsx`** + **`src/components/dashboard/SubjectDetailModal.jsx`** — flagged in the prior shift's "what I didn't get to" #3. A student looking at GradeTrends and seeing Math at 78% had to: open the modal → click "Set goal" → type a number / pick a preset → save. Three taps for a goal-set flow. Now each row has a `Target` chip next to the trend badge:
+  - **No goal set:** a subtle "Set goal" pill (gains indigo on hover). Tapping it deep-links into the SubjectDetailModal pre-expanded on the goal editor.
+  - **Goal set, in progress:** "45/90 min" indigo pill. Same deep-link, lets the student adjust mid-week.
+  - **Goal hit:** "120/90 min" emerald pill. Same deep-link, lets the student raise the bar.
+- **Plumbing:** SubjectDetailModal accepts a new `defaultView` prop (`"trend"` | `"goal"`, default `"trend"`); the `useEffect` that resets the goal-editor expand state on subject change honors this so a deep-linked open lands in the editor, not the trend view. GradeTrends's outer row converted from `<button>` to `role="button" div` so the inner Goal chip can be a real `<button>` (nested `<button>` is invalid HTML and would have broken the click target on some browsers); keyboard activation (Enter / Space) preserved. The chip uses `stopPropagation` so the row's click handler doesn't fire when the student taps the chip directly. `weekBySubject` memoized off assignments + tests so a fresh Pomodoro updates the bar without re-deriving subjects.
+  - feat: ac23c37 · https://github.com/landon-personal/gradeguardnewsync/commit/ac23c37
+
+### Added (web) — Floating `PomodoroTimer` hot-reloads lengths from `/FocusTimer` editor
+
+- **`src/lib/pomodoroLengths.js`** + **`src/components/dashboard/PomodoroTimer.jsx`** — flagged in the prior shift's "what I didn't get to" #6. A student who saved new lengths on /FocusTimer (e.g. picked the Deep 50/10 preset) and nav-aways back to /Dashboard saw the OLD durations on the floating widget until a hard reload, because the widget read `gg_pomodoro_lengths` once at mount.
+- **Fix:** `saveLengths` / `resetLengths` now dispatch a `gg-pomodoro-lengths-changed` `CustomEvent` for same-tab listeners (the native `storage` event only fires across tabs, so a same-tab subscriber needed a separate channel; exported as `LENGTHS_CHANGED_EVENT`). The widget subscribes to both `storage` (cross-tab) and the new CustomEvent (same-tab). On change: `setLengths` to the fresh value, and **if the widget is idle** (not running AND `secondsLeft === prior mode total`) also snap `secondsLeft` to the new mode total so the visible countdown reflects the new preference. A paused or running mid-session is left alone — surprising a student by truncating their 50-min run is worse than waiting until the next mode-switch. Refs (`runningRef` / `modeRef` / `secondsLeftRef` / `lengthsRef`) keep the listener body's reads pinned to current values without re-binding on every tick — same shape the AudioContext + interval refs already use.
+  - feat: 4d0a928 · https://github.com/landon-personal/gradeguardnewsync/commit/4d0a928
+
+---
+
 ## [Unreleased] — 2026-04-30 18:12 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
