@@ -17,6 +17,43 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-04-30 16:14 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Per-subject weekly study minute goals 🎯
+
+- **`src/lib/subjectGoals.js`** (new, ~140 lines) — single source of truth for the student's per-subject minute targets. `getSubjectGoal` / `setSubjectGoal` / `clearSubjectGoal` / `listSubjectGoals` API. `thisWeekMinutesBySubject({ assignments, tests })` walks Sun → today through `gg_focus_sessions_<date>` keys, resolves each session's `assignment` tag → subject the same way SubjectEffortIndex / WeeklyRecapModal do (assignment name lookup; "Study: <test>" unwrap; untagged → "Other"), and returns `{ [subject]: minutes }`. `subjectWeeklyProgress(subject, byWeekMap)` returns `{ minutes, goal, pct, hit }` — `pct` capped at 100 for progress-bar rendering, `hit` is `minutes >= goal` so a student who blew past gets the celebration even when pct clamps. Range 15–900 min/week, default 90 min (~3.5 Pomodoros). Stored under `gg_subject_goals` as `{ "<normalized subject>": <minutes> }`. Honors per-session `minutes` stamp from the configurable-Pomodoro-length feature, with a 25-min fallback for legacy rows. Pure client-side, no PII.
+- **`src/components/dashboard/SubjectEffortIndex.jsx`** — every subject row is now clickable (Enter/Space too) and opens a `SubjectDetailModal` with the same trend sparkline GradeTrends shows. When a goal is set, the row gets a second thin progress bar under the band bar: a `Target` icon + per-subject hex fill + `45 / 90 min` count (emerald + bold once hit). Also: the panel was still aggregating focus minutes as `count × 25` despite the configurable-length feature stamping per-session `minutes`; now uses each session's actual length so a student doing 50-min blocks sees their real weekly total. Footer copy updated from "25 min per session" to "Tap a subject row to open details · set a weekly goal · log time from Pomodoros".
+- **`src/components/dashboard/SubjectDetailModal.jsx`** — title row gets a `Target` pill on the right that shows current week minutes / goal (or "Set goal" when none). Tapping it expands an editor: number input (clamps 15-900), 5 preset chips (60 / 90 / 120 / 180 / 240 min), Save (Enter), Clear, and a live progress preview using the subject's color (emerald + "Goal hit 🎉" when crossed). Editor draft is reset every time a new subject opens — previous subject's draft never leaks. Same auto-refresh `forceTick` pattern the color picker uses, so saving a goal updates the panel pill immediately without closing the modal.
+- **`src/components/dashboard/WeeklyRecapModal.jsx`** — when 1+ subjects have a goal set, the recap renders a new "Subject goals this week" section above "Where your week went". Each row shows a subject-color dot + name + per-subject progress bar + `45/90 min` count, sorted by completion pct desc. Goal-hit rows fill emerald and bold the count. Drops the "Other" bucket since a tagless Pomodoro can't be attributed to a class. Also fixed an aggregate-correctness bug in this same file: focus minutes were computed via `FOCUS_MODE_MINUTES[s.mode]` (hardcoded 25/5/15), now respects the per-session `minutes` field.
+- **Why a student notices it:** the Weekly Focus Goal feature shipped 4 shifts ago tracked one global target across all subjects ("100 min this week"). But a student trying to drag up their lowest grade needs *per-class* discipline — "I want 90 min on Math + 60 min on Science this week," not a flat budget. Now the goal lives next to the per-subject focus rhythm strip the student already looks at to pick where to spend a Pomodoro, the Sunday recap shows which class goals landed and which drifted, and the SubjectDetailModal turns into a one-stop "what's my plan for this class" hub (color override + weekly goal + grade trend + pending list, all one tap from the dashboard).
+  - feat: cc98dee · https://github.com/landon-personal/gradeguardnewsync/commit/cc98dee
+
+### Added (web) — Pomodoro length preset chips on the FocusTimer editor
+
+- **`src/pages/FocusTimer.jsx`** — flagged in the prior shift's "what I didn't get to". The configurable-length editor previously only took raw minute inputs; a student who didn't already know what 50/10 felt like vs. classic 25/5 had no jumpstart. Added 5 1-tap preset chips above the inline inputs: **Sprint 15/3** / **Classic 25/5** / **Long 30/5** / **Deep 50/10** / **Marathon 90/15**. Tapping a chip fills the draft fields (work / short / long); the student still hits Save to commit so a misclick can't silently retime their setup. The active preset chip lights up indigo when the draft matches.
+- **`src/components/common/KeyboardShortcutsModal.jsx`** — also flagged in the prior shift's "what I didn't get to". The `?` cheat-sheet didn't mention the timer-length editor's keyboard shortcuts. Added a new section: **Custom timer lengths editor** → Enter saves, Esc cancels.
+  - feat: 3a60c98 · https://github.com/landon-personal/gradeguardnewsync/commit/3a60c98
+
+### Fixed (web) — `DailyCheckout` + `WeeklyFocusGoalMini` still hardcoded 25-min sessions
+
+- **`src/components/dashboard/DailyCheckout.jsx`** — `readFocusMinutesForDate` was summing `FOCUS_MODE_MINUTES[s.mode]` (literal `{ work: 25, short: 5, long: 15 }`) per session row. After the configurable-Pomodoro-length feature shipped, students doing 50-min sessions saw the end-of-day "you focused for X min today" prompt under-report (50-min session counted as 25). Now reads the per-session `minutes` field with the legacy 25-min fallback for rows written pre-feature. Same fix the prior shift applied to PersonalBests.computeFocusBests / FocusTimer.loadFocusHistory; this file was missed in that sweep.
+- **`src/components/dashboard/WeeklyFocusGoalMini.jsx`** — same shape. `loadRecentFocusHistory` was stamping `minutes: FOCUS_WORK_MINUTES` (literal 25) onto every history row, so the Dashboard's Weekly Focus Goal bar capped at `count × 25` even for a student doing 50-min Deep sessions. Now uses `s.minutes` when present, falls back to 25.
+  - fix: 82a9ca4 · https://github.com/landon-personal/gradeguardnewsync/commit/82a9ca4
+
+### Fixed (web) — `NotificationSettingsPanel` save/requestPerm awaits could fire setState post-unmount
+
+- **`src/components/notifications/NotificationSettingsPanel.jsx`** — the popover lives inside the bell-icon dropdown and is freely dismissable (Esc, click outside, parent unmount). `save()` calls `onClose()` in the success path which unmounts the popover, then `setSaving(false)` in finally fires on the unmounted component. `requestPerm()` has the same shape: `await Notification.requestPermission()` followed by `setPermStatus` / `setPushEnabled` / `setRequestingPerm`. Both now go through a `mountedRef` gate. toast.error stays as-is (toasts are global, safe post-unmount).
+  - fix: 82a9ca4 · https://github.com/landon-personal/gradeguardnewsync/commit/82a9ca4
+
+### Fixed (web) — `FlaggedMessagesPanel.handleBulkAction` mountedRef + early-break
+
+- **`src/components/admin/FlaggedMessagesPanel.jsx`** — bulk-status update on a school-sized flagged-messages list is a 5–20s sequential await loop (one `onAdminWrite` per id). Admin can switch tabs / leave AdminDashboard mid-loop. Without the guard: `setSelectedIds(new Set())`, `toast.error`, and `setBulkProcessing(false)` all fired on the unmounted panel. Added `mountedRef` (init true, false on unmount), checked before each setState after the await; the loop also checks at the top of every iteration so it stops issuing requests once the panel is gone.
+  - fix: ce29093 · https://github.com/landon-personal/gradeguardnewsync/commit/ce29093
+
+---
+
 ## [Unreleased] — 2026-04-30 14:07 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
