@@ -17,6 +17,43 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-04-30 18:12 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — `SubjectGoalsStrip` on the FocusTimer page + per-subject goal-hit toast 🎯
+
+- **`src/components/dashboard/SubjectGoalsStrip.jsx`** (new, ~110 lines) — compact horizontal pill row, one card per subject with a goal set. Each card: subject-color dot + name + thin progress bar (subject hex fill, emerald + 🎉 once goal hit) + `45 / 90 min` count, sorted most-behind first. Renders nothing if no goals are set, so a student who hasn't engaged with the per-subject goals feature shipped 2 shifts ago never sees the strip. The "Suggest" button (only when 1+ subject still under goal) picks the lowest-pct subject's first non-completed assignment and hands it to the parent via `onPickAssignment(assignment, label)`. Subject lookup is normalized + display-cased (the goal store uses normalized keys, the focus-session aggregate uses display-cased subject names — the strip walks both byWeek + assignments + tests to build the normalized→display map so a goal set under "math" resolves to "Math" if any current assignment / test has that case).
+- **`src/pages/FocusTimer.jsx`** — strip slotted between the timer ring and the Reset/Play/Pick controls, so a student opens /FocusTimer and immediately sees which subject is lagging on the week's plan. Suggest hands the chosen assignment to `setSelectedAssignment` + closes the picker + toasts the pick; graceful fallback (toasts a hint + opens the picker) when no pending assignment exists for the subject. Plus a per-subject goal-hit `useEffect` that fires a one-time-per-(subject, ISO week) toast via the new localStorage seen-gate — matches the global Weekly Focus Goal toast that already fires on this page. Also: the tests query is no longer gated on `?testId` so the strip + `thisWeekMinutesBySubject` can resolve `Study: <test>` tagged sessions to the right subject.
+- **`src/lib/subjectGoals.js`** — adds `currentWeekKey()` (Sunday-anchored ISO date matching the rest of the app's week math), `hasSeenSubjectGoalHit` / `markSubjectGoalHit` (`gg_subject_goal_hits` localStorage gate; old week buckets are pruned on each mark so the blob never grows unbounded for a long-time user).
+- **Why a student notices it:** flagged in the prior shift's "what I didn't get to" — the per-subject weekly goals shipped 2 shifts ago surfaced on the dashboard SubjectEffortIndex / WeeklyRecapModal, but the FocusTimer page (where the student actually picks what to study) had no signal about which subject was lagging. Now they see the strip every time they open /FocusTimer, can one-tap "Suggest" to load the most-behind subject's assignment, and get a per-subject celebration toast when they finally cross a goal. Closes 3 backlog items in one feature.
+  - feat: e0427d4 · https://github.com/landon-personal/gradeguardnewsync/commit/e0427d4
+
+### Fixed (web) — 🚨 Floating `PomodoroTimer` didn't write `gg_focus_sessions_` rows (critical data divergence)
+
+- **`src/components/dashboard/PomodoroTimer.jsx`** — flagged as 🚨 in the prior shift's "what I didn't get to" and explicitly *not fixed* that shift because of double-count concerns. Before this commit, a student who only used the floating widget on /Dashboard / /Assignments / /Tests had ZERO data visible in: today's strip on /FocusTimer, the 12-week heatmap, `WeeklyRecapModal`, `WeeklyFocusGoalMini`'s progress bar, `DailyCheckout`'s "X min today" end-of-day prompt, `SubjectEffortIndex` per-subject minutes, `PersonalBests` records, and the per-subject weekly goals + new `SubjectGoalsStrip`. Effectively half the focus engagement surface was dead for a non-trivial slice of the student base. Fix: the natural-completion path (timer running out, NOT the explicit Skip button) now appends a row to `gg_focus_sessions_<localdate>` matching the schema `FocusTimer.handleComplete` writes — `{ mode, minutes, assignment, completedAt }`, with mode keys translated `'work'` / `'shortBreak'` / `'longBreak'` → `'work'` / `'short'` / `'long'` to match what every reader filters on. `localDateKey(new Date())` (NOT UTC) so the writer matches the FocusTimer fix from a few shifts ago. `activeTask.name` carries through as the assignment tag so the per-subject weekly goal feature can attribute the session to a subject. `advance()` now takes a `persist` flag — `handleSkip` passes `false` so an explicit skip-last-30-seconds doesn't fake a complete-session row. Safari Private Mode / quota errors swallowed silently.
+- **`src/Layout.jsx`** — floating `PomodoroTimer` hidden when `currentPageName === "FocusTimer"`. Both timers writing to `gg_focus_sessions_<date>` in parallel would double-count; visually they collide on the same screen anyway. Cleaner separation: the floating widget is for OTHER pages (Dashboard / Assignments / Tests), the page version is for the dedicated /FocusTimer surface.
+  - fix: 9c28e89 · https://github.com/landon-personal/gradeguardnewsync/commit/9c28e89
+
+### Added (web) — Subject color dots on `GradeTrends` + active-task pill in floating Pomodoro
+
+- **`src/components/dashboard/GradeTrends.jsx`** — flagged in the prior shifts' subject-color "more surfaces" backlog. Each subject row now leads with a 2px subject-color dot (matches AssignmentCard / TestCard / SubjectEffortIndex / DeadlineCalendar). The grade-letter color stays as-is — that's an A/B/C/D/F signal, distinct from subject identity.
+- **`src/components/dashboard/PomodoroTimer.jsx`** — same subject-color extension. The active-task pill in the expanded panel (the small "📖 Math homework" tile under the assignment selector) was hard-coded to the mode color (indigo for work). Now tints to the task's subject color: `subjectColor(activeTask.subject)` provides the `hex` and `soft` background, plus a leading dot. Falls back to the mode color when the assignment has no subject set so a generic Pomodoro still has a sensible look.
+- **Why:** GradeTrends was the only major dashboard panel left without subject color dots, and the floating Pomodoro's active-task pill was the most obvious mid-session subject-recognition surface still using mode-only color. A student running a Math session sees the same green that surfaces Math everywhere else in the app.
+  - fix+feat: bc520bc · https://github.com/landon-personal/gradeguardnewsync/commit/bc520bc
+
+### Fixed (web) — `AdminDashboard.copyCode` setTimeout had no cleanup
+
+- **`src/pages/AdminDashboard.jsx`** — flagged in the prior shift's "what I didn't get to". `copyCode`'s `setTimeout(() => setCopiedCode(null), 2000)` had no cleanup; admin nav-aways within the 2s "copied!" window fired setState on the unmounted page. Also: back-to-back copies of different codes had racing `setCopiedCode(null)` timeouts that wiped the indicator early. Now cached in `copyTimerRef` + cleared on unmount AND on each new copy. Same shape as `PickForMeButton.confettiTimerRef` from a few shifts ago.
+  - fix: bc520bc
+
+### Fixed (web) — `AssignmentAttachment` mountedRef gap
+
+- **`src/components/assignments/AssignmentAttachment.jsx`** — file upload (`Core.UploadFile`) + assignment update is multi-second; the parent `AssignmentCard` unmounts when filters change, status flips to completed, or the assignment gets deleted from another card. Without this guard, `setUploading(false)` / `setRemoving(false)` in the finally + `onUpdate` (parent setState) all fire on unmounted components. Standard `mountedRef` pattern: post-await `setState` only when still mounted, `toast.error` skipped on unmount.
+  - fix: ea7e7ee · https://github.com/landon-personal/gradeguardnewsync/commit/ea7e7ee
+
+---
+
 ## [Unreleased] — 2026-04-30 16:14 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
