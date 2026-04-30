@@ -17,6 +17,53 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-04-30 02:30 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Test Confidence Tracker: per-test "How prepared do you feel?" 💪
+
+- **`src/lib/testConfidence.js`** (new) — pure-localStorage helpers (`loadConfidence`, `recordConfidence`, `clearConfidence`, `latestRating`, `previousRating`, `ratedToday`) keyed by `gg_test_confidence_<testId>`. Stores a chronological array `{ rating: 1..5, ts: ISO }` capped at 30 entries so a student rating compulsively for a month-out test can't blow out localStorage. Same defensive Safari-Private-Mode / corrupted-JSON pattern as `MoodCheckIn` / focus sessions — every read/write is guarded, and corrupted entries auto-clear instead of crashing the page.
+- **`src/components/tests/TestConfidenceRater.jsx`** (new) — 5-button picker (😰 Lost · 🤔 Shaky · 😐 Okay · 🙂 Solid · 💪 Ready) that flips between an empty-state prompt and a compact display of the latest rating (color-banded chip: rose → amber → yellow → lime → emerald). After 2+ ratings, surfaces a tiny vertical-bar trend strip showing the last up to 8 entries with the most-recent ringed in purple, plus a delta arrow ("Up 1 from last" / "Down 2 from last" / "Steady"). "Rate again" / "Update" link reopens the picker any time. Tailwind-JIT-friendly explicit class lists per tone so the build picks them up.
+- **Wired into `src/components/tests/TestCard.jsx`** — renders below the action-buttons row (Prep plan / Flashcards / Practice Quiz) for every non-completed, future-dated test. Same `showPrepToggle` gate the Prep Timeline uses, so completed/past tests don't show a stale "How prepared do you feel?" prompt.
+- **Wired into `src/components/dashboard/NextTestCountdown.jsx`** — the urgent-test banner on the Dashboard hero now has a compact confidence rater inline. Means a student can rate readiness for the closest test without leaving the dashboard. Reuses the same component in `compact` mode for a single source of truth on the rendering.
+- **Cleanup on delete** — `src/pages/Tests.jsx` `deleteMutation.onSuccess` now calls `clearConfidence(id)` so deleted tests don't leave orphan localStorage entries behind.
+- **Privacy** — pure client-side. No new network calls, no server-side state, no PII off-device. Same posture as DailyCheckout / SessionIntentions / SubjectEffortIndex / DailyGoalsCard.
+- **Why a student notices it:** the Test Prep Timeline shipped earlier today tells a student *what to do* for an upcoming test. Flashcards / Practice Quiz tell them *the content*. But neither answers the actual feeling-question that drives test anxiety: *"Am I getting more prepared, or just spinning my wheels?"* A 13-year-old who rated themselves 1 ("Lost") on Monday, 2 ("Shaky") on Wednesday, and 4 ("Solid") on Friday now has visible proof that the prep work moved the needle — the trend strip shows it, the delta arrow names it. Conversely, a student who's been "studying" all week but is still rating 2/5 has a different signal: time spent ≠ readiness, and they need to switch tactics (different mode of practice, ask for help, reschedule the test). Felt-readiness was the missing measurable.
+
+### Fixed (web) — `Onboarding.handleSchoolCodeNext` had no loading guard
+
+- **`src/pages/Onboarding.jsx`** — flagged in the prior shift's "What I didn't get to". Spam-clicking Continue on a slow connection could fire multiple parallel `secureEntity("School").filter(...)` calls. Added `checkingSchool` state with a top-of-handler bail (`if (checkingSchool) return;`) and a visible "Checking…" label on the disabled button. Same pattern shipped on the Tests / Assignments / Onboarding-auth handlers in prior shifts.
+
+### Fixed (web) — `FriendChatPanel` failed send burned the 3-second cooldown
+
+- **`src/components/friends/FriendChatPanel.jsx`** + **`src/pages/Friends.jsx`** — flagged in the prior shift's "What I didn't get to". `lastSentRef.current = now` was set BEFORE awaiting `onSend()`, so a network failure (or the existing 12-second `Promise.race` reject in `sendMessageMutation`) consumed the cooldown even though no message went out — student then had to wait 3 seconds before retrying despite seeing an error toast. Now: snapshot the prior `lastSentRef`, set the new value, `await Promise.resolve(onSend())`, revert on rejection. Parent's `onSend` now returns `sendMessageMutation.mutateAsync(...)` so the rejection actually propagates back to the rate-limit logic.
+
+### Fixed (web) — `FlaggedMessagesPanel.handleSelectAll` could clear the wrong selection
+
+- **`src/components/admin/FlaggedMessagesPanel.jsx`** — flagged in the prior shift's "What I didn't get to". `prev.size === newIds.length ? clear : selectAll` compared counts, not membership. If the visible-messages set changed between clicks (filter toggle from "all" → "new" or status-tab switch) and the count happened to match, "Select all" silently cleared the prior selection instead of selecting the now-visible rows. Compare via `newIds.every(id => prev.has(id))` instead.
+
+### Fixed (web) — Default notification reminders never fired the "Due today" branch
+
+- **`src/components/notifications/useNotifications.jsx`** + **`NotificationBell.jsx`** + **`NotificationSettingsPanel.jsx`** — `useNotifications` had a clear "Due today: X" / "Test today: X" title branch but the default fallback for `remind_days_before` was `[1]` (1 day before), so any student who hadn't manually toggled the "Same day" option in `NotificationSettingsPanel` never received day-of reminders — the most useful one. Default to `[0, 1]` everywhere it appears so new accounts and accounts that haven't customized get both same-day and 1-day-before pushes by default. Existing customized settings are unaffected.
+
+### Fixed (web) — `useNotifications` race window let duplicate pushes fire
+
+- **`src/components/notifications/useNotifications.jsx`** — `assignments` and `tests` change identity any time the React Query cache invalidates; the effect re-runs on each identity change. Between when the local check `last_checked === todayStr` passes and when the server-side PATCH actually lands, multiple concurrent runs could all pass the gate and fire the same notifications (visible to a student as their phone buzzing 2-3 times for the same item). Added `inFlightRef` + `firedTodayRef` so same-mount duplicates are gated even before the server write propagates back to the React Query cache.
+
+### Fixed (web) — `AssignmentCard.noteDraft` was stuck on the value at first mount
+
+- **`src/components/assignments/AssignmentCard.jsx`** — `useState(assignment.notes)` only seeds once. If the parent re-rendered with an updated note (other tab edit, focused refetch, optimistic-update rollback), the read-mode `<p>` updated but the textarea draft didn't. Opening the editor showed stale text, and saving would silently overwrite the newer server value. Sync `noteDraft` to `assignment.notes` whenever it changes — but only when not actively editing, so a query refetch mid-edit doesn't blow away in-progress typing.
+
+### Fixed (web) — `TestConfidenceRater` celebration timer leaked on unmount
+
+- **`src/components/tests/TestConfidenceRater.jsx`** — caught in the same shift the feature was shipped. The 1.1s `setTimeout(setJustRated(null), 1100)` after a successful rating wasn't tracked, so navigating away (or deleting the test) during that window fired `setState` on the unmounted component. Mirror into a ref + clear on unmount, same pattern the codebase uses elsewhere (`PomodoroWidget`, `InviteLinkButton`, `WeeklySummaryButton`, `AIAssignmentChat`).
+
+### Why
+One real student-visible feature (Test Confidence Tracker — per-test 1-5 self-rating with trend-strip + delta arrow, surfaced both inline on every TestCard and in the Dashboard's NextTestCountdown banner, and cleaned up cleanly when tests are deleted). Plus a tight bug-fix block: three of the four flagged items from the immediate-prior shift's "What I didn't get to" list (school-code loading guard, FriendChatPanel cooldown burn, FlaggedMessagesPanel select-all bug), one CMS-relevant default-correctness fix (notification reminders never firing same-day), one race-condition fix (duplicate notifications during query refetch storms), one stale-state fix (AssignmentCard note draft), and one self-caught regression (the new Confidence Rater's own setTimeout leak).
+
+---
+
 ## [Unreleased] — 2026-04-30 00:30 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
