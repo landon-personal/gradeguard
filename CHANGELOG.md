@@ -17,6 +17,36 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-04-30 00:30 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Session Intentions: a metacognitive bookend on every Pomodoro 🎯
+
+- **`src/pages/FocusTimer.jsx`** — added a one-line "Goal for this session (optional) — e.g. 'finish problems 1–10'" input that renders above Today's Sessions whenever `mode === "work"` and the timer is not running. Capped at 120 chars with a clear button. While the timer runs, the input is replaced by a read-only chip pinning the intention so the student keeps the goal in view without being able to edit mid-session.
+- **Post-session reflection modal** — when a work session completes WITH an intention set, a modal surfaces the intention back at the student and asks "Did you finish what you set out to do?" with three buttons: Yes (emerald), Partly (amber), Not yet (rose). Closing without rating ("skipped") still saves the session but doesn't count toward stats. The auto-switch to break is deferred until the modal is dismissed; without an intention, the existing auto-switch fires immediately as before.
+- **Storage** — extended the existing `gg_focus_sessions_<date>` localStorage shape with optional `intention: string` and `outcome: "yes"|"partly"|"no"|"skipped"` fields. Older sessions read back as before (other readers — `StudyHistoryInsights`, `WeeklyRecapModal`'s minutes/days math, `SubjectEffortIndex` — only consume `mode`/`minutes`/`subject`/`completedAt`/`date`, so the new fields are inert noise to them). No new keys, no schema migration.
+- **`src/components/dashboard/WeeklyRecapModal.jsx`** — surfaces an "X% of sessions hit their goal" stat row when there are 2+ rated sessions in the current Mon-Sun week. Yes = full credit, Partly = half credit, No = zero. "Skipped" outcomes don't count either way (rating intent matters — a skipped reflection is data we don't have, not data that says "no"). Hidden entirely below 2 rated sessions to avoid noise on light weeks.
+- **Privacy**: pure client-side, no new network, no PII off-device, all reads/writes guarded for Safari Private Mode / sandboxed iframes via the existing `loadTodaySessions` / `saveTodaySessions` helpers. Same posture as `WorkloadForecast` / `SubjectEffortIndex` / `DailyCheckout`.
+- **Why a student notices it:** the Pomodoro habit was already paying off — sessions get logged, the heatmap shows consistency, the new SubjectEffortIndex shows class-level imbalance. But every individual 25-min block was a black box: the student sat down with no goal at the start and walked away with no judgment at the end. Adding intention + reflection turns each session into a small commitment-and-honesty loop. Over a week, the recap stat answers the question students rarely ask themselves out loud: "I'm putting in the time — but how much of it actually moves the thing I sat down to move?" Finishing 80% of intended sessions is a meaningfully different signal than just logging hours.
+
+### Fixed (web) — MiniGames silent LLM failure misdiagnosed as 'No tests' / 'Game Over'
+
+- **`src/components/assistant/MiniGames.jsx`** — `LightningRound`, `MemoryMatch`, and `TermGuesser` all wrapped their `InvokeLLM` call in a `try/catch` that either swallowed the error entirely (MemoryMatch) or set `gameOver=true` (LightningRound, TermGuesser). When the AI call actually failed (network, rate limit, bad JSON), the student saw misleading copy: `"No tests available!"` (suggesting they should add tests), `"Game Over! Final Score: 0"` (suggesting they finished a game they never got to play), or `"Game Over! The answer was: "` with an empty term (visibly broken). Added a `loadError` state to each game and a clear error UI: `"Couldn't build this round / pick a term — check your connection and try again"` with a Close button. The legitimate empty-tests fallback ("No tests available!") is preserved as a separate path so a student with zero tests still gets the correct nudge to add some.
+
+### Fixed (web) — `NotificationSettingsPanel.requestingPerm` state read but never set
+
+- **`src/components/notifications/NotificationSettingsPanel.jsx`** — the Enable Browser Notifications button bound `disabled={requestingPerm}` and showed `"Asking your browser…"` while it was true — but `setRequestingPerm` was never called, so the UI stayed at the static label and the user could spam-click. Each click fires `Notification.requestPermission()`; once the browser's permission dialog is up, additional calls either no-op (Chrome) or queue another dialog the user has to dismiss (some other browsers). Added the missing `setRequestingPerm(true)/false` around the request plus a top-of-handler bail when already requesting.
+
+### Fixed (web) — FocusTimer Space could start the next session behind the reflection modal
+
+- **`src/pages/FocusTimer.jsx`** — once the new reflection modal landed, the existing Spacebar-to-start/pause listener (registered with `[]` deps and only checking `target === document.body`) could still fire while the modal was open, setting `running=true` and starting the next work session beneath the modal. Mirrored `pendingReflection` into a ref so the listener sees the live value without re-registering, then early-returned when the modal is up. Same pattern used for `showFormRef` in Tests/Assignments after the prior N-key bug.
+
+### Why
+One real student-visible feature (Session Intentions — the missing metacognitive bookend on Pomodoro: a one-liner goal at the start of each work session, a 3-button self-rating at the end, and an "intention completion %" stat that surfaces in the Sunday recap when there are enough rated sessions to be meaningful). Plus a tight bug-fix block: a UX-misdiagnosis bug across all three StudyAssistant MiniGames where a network failure on the LLM call was rendered as "Game Over" or "No tests available", a broken loading-state on the Enable Notifications button that let users spam permission prompts, and a Spacebar-bypasses-modal bug introduced by the new feature itself (caught and patched in the same shift).
+
+---
+
 ## [Unreleased] — 2026-04-29 22:00 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
