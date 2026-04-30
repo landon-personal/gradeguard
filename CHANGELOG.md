@@ -17,6 +17,41 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-04-30 04:15 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Test Readiness Panel: aggregate confidence across upcoming tests 🎯
+
+- **`src/components/dashboard/TestReadinessPanel.jsx`** (new) — natural follow-on to the Test Confidence Tracker that shipped two shifts ago. The per-test rater on each TestCard (and the inline rater in the Dashboard's `NextTestCountdown` banner for the soonest test) was already capturing 1-5 readiness ratings into per-test localStorage. But a student preparing for 3-4 tests in the next 14 days had no way to see the whole slate at a glance — they had to navigate to `/Tests`, scroll through their list, and read each card's rater individually.
+- **What the panel surfaces** — the soonest 14 days of non-completed tests, sorted by days-until. Each row: a days-until tile (`0 TODAY` / `1 TMRW` / `N DAYS`), the test name + subject, plus on the right side the confidence chip (😰/🤔/😐/🙂/💪 with color band), a 6-bar mini-trend strip when there are 2+ ratings, and a delta arrow (Up/Down/Steady from previous rating). Tests without a rating get a "Tap to rate" pill in purple instead.
+- **Inline rate / update** — clicking a row expands it to a 5-button rater (the same `CONFIDENCE_LEVELS` shape as the per-test rater for visual consistency). A rating fires `recordConfidence(testId, value)` from `src/lib/testConfidence.js` (the single source of truth), updates the local state map so the row's chip + trend strip refresh instantly, and auto-collapses after a brief celebration animation. The student never has to leave the dashboard. Same `mountedRef` + `collapseTimerRef` pattern as `TestConfidenceRater` — celebration timer cleared on unmount so we don't `setState` after the dashboard navigates away mid-rating.
+- **Smart callout** above the rows — names the single highest-leverage action: an unrated test in the next 7 days ("X is in 3 days — a quick readiness check helps you spot weak spots"), a stuck-low rating ≤ 2 in the next 7 days ("Confidence on X is still shaky — try a different practice mode"), a celebrate-improvement signal ("Confidence on X is climbing — keep going"), or an aggregate fall-through ("Average readiness across N rated tests: X.X/5"). Same priority-sort pattern `WorkloadForecast` and `SubjectEffortIndex` use.
+- **Render gate** — auto-hides when there are < 2 upcoming tests in the 14-day window. Below 2, `NextTestCountdown` already shows the same data inline at the top of the dashboard for the single test; surfacing it twice would just be visual duplication. With 0 tests, nothing renders.
+- **`src/pages/Dashboard.jsx`** — wired between `SubjectEffortIndex` and `ProgressCharts`, threading the same `activeTests` prop the rest of the dashboard already has.
+- **Privacy** — pure client-side derivation. No new network calls, no new server-side state, no PII off-device. Same posture as DailyCheckout / SessionIntentions / SubjectEffortIndex / TestConfidenceRater. All localStorage reads guarded for Safari Private mode / sandboxed iframes via the existing `loadConfidence` helper.
+- **Why a student notices it:** the Test Confidence Tracker that shipped on 04-30 02:30 UTC answered the *per-test* feeling-question ("Am I getting more prepared for THIS test?"). But a 13-year-old with a Math quiz on Wednesday, a History test on Thursday, and a Science test next Tuesday had no across-tests view — and that's exactly the slate where readiness needs visible attention. The panel turns "I have three tests coming up" from background dread into a structured triage: which one's most overdue for a check-in, which one's still rated 1/5 with three days to go, which one's actually trending up.
+
+### Fixed (web) — `MiniGames`: setState-after-unmount on slow LLM responses
+
+- **`src/components/assistant/MiniGames.jsx`** — flagged in the prior shift's "What I didn't get to". `LightningRound`, `MemoryMatch`, and `TermGuesser` all kick off an `InvokeLLM` generate-questions / pairs / term call from a `useEffect` and then `setState` on the result. A slow LLM response combined with a quick `StudyAssistant` tab switch (or any parent-level unmount of the active-game container) produced a `setState`-on-unmounted-component warning + tiny memory leak. Added a `mountedRef` that flips false on unmount, with `setState` calls gated after every `await` and in the `finally` block. Same pattern `AIAssignmentChat` / `TestConfidenceRater` already use. Identical shape across all three games.
+
+### Fixed (web) — `PomodoroWidget`: Start after a finished session was a no-op
+
+- **`src/components/dashboard/PomodoroWidget.jsx`** — once a Pomodoro counted down to 0, `secondsLeft` sat at 0 with `running=false` and `notifiedRef.current=true`. Clicking Start re-armed the interval, which immediately fired its `prev <= 1` branch (set `running=false`, skip the notification because `notifiedRef` was already true) and bailed — student saw the timer briefly run and stop with no progress and no "Session complete!" toast on the next round. The escape hatches (`Reset`, `Switch mode`, `Preset`) all already cleared both, but the most natural action — clicking Start again — produced nothing. `handleStartPause` now restores the mode's full duration and clears `notifiedRef` when the user starts from a fully-decremented state. Pause behavior is unchanged.
+
+### Fixed (web) — `AssignmentForm` + `VocabQuizFromNotes` + `TestForm` AI handlers had no unmount guard
+
+- **`src/components/assignments/AssignmentForm.jsx`** — `handleAISuggest` fires `InvokeLLM` from a button click in a dismissable modal. Closing the form (Cancel / Esc / Submit) while the call was in-flight left `setForm` + `setAiSuggested` + the catch-branch `toast.error` running on an unmounted component. Added the standard `mountedRef` guard.
+- **`src/components/assistant/VocabQuizFromNotes.jsx`** — same pattern in `handleGenerate`. The StudyAssistant tool surface can be navigated away mid-generation; `setCards` / `setError` / `setGenerating` could fire post-unmount.
+- **`src/components/tests/TestForm.jsx`** — same pattern in `handleAISuggest`. Closing the test-form modal mid-call left the same state-after-unmount tail.
+- All three follow the `MiniGames` fix's shape: ref starts true, flipped false on unmount, gated before every `setState` after the await + in the `finally`.
+
+### Why
+One real student-visible feature (Test Readiness Panel — the missing across-tests view that turns the per-test confidence ratings the prior shift's TestConfidenceRater is already capturing into a triage surface on the dashboard, with a smart callout that names the single highest-leverage next action and inline rate-or-update so the student never leaves the page). Plus a tight bug-fix block: the `MiniGames` setState-after-unmount that was flagged in the prior shift's "What I didn't get to" backlog, an actually-broken Pomodoro Start-after-end no-op (caught while auditing the existing dashboard timers), and three more LLM-handler unmount guards in form modals (`AssignmentForm`, `VocabQuizFromNotes`, `TestForm`) — same pattern, three more callsites.
+
+---
+
 ## [Unreleased] — 2026-04-30 02:30 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
