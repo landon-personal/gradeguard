@@ -17,6 +17,49 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-04-30 12:18 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Subject Color System: stable per-subject palette across the whole app 🎨
+
+- **`src/lib/subjectColors.js`** (new, ~130 lines) — single source of truth for the per-subject color a student sees everywhere in the app. `subjectColor(name)` returns `{ name, hex, soft, text, ring }` from a 12-color palette via djb2 hash of the normalized subject name (lowercase, trimmed) — same algorithm flashcardMastery uses for card identity, kept consistent so future code can reason about hash collisions across both systems. Stable across page reloads, devices, and accounts. Returns hex values (not Tailwind class strings) so the caller passes them straight to inline `style` — sidesteps Tailwind PurgeCSS *and* works for student-defined override colors.
+- **Per-student overrides** stored under `gg_subject_color_overrides` as `{ "<normalized subject>": <palette index> }`. `setSubjectColor` / `clearSubjectColor` / `currentPaletteIndex` round out the API. All localStorage reads/writes are wrapped in try/catch — Safari Private Mode / quota errors never crash a page that asks for a subject color.
+- **Color picker on `SubjectDetailModal`** — title now shows a small swatch button next to the subject name. Tap to expand a 12-color picker; click any swatch to set; "Reset" clears the override and reverts to the hashed default. Copy underneath: "Same color shows up everywhere this subject appears — calendar, focus index, today's focus card." So a student who hates the color Math hashed to can pick green, and the change propagates the next time each surface mounts.
+- **Wired into 6 surfaces:**
+  - `SubjectEffortIndex` — 2.5px subject-color dot prefixes the row name.
+  - `TodaysFocusCard` — the subject pill gets a leading 1.5px swatch dot.
+  - `TestReadinessPanel` — each test row's subject sub-line gets a 2px dot.
+  - `DeadlineCalendar` — assignment dots are now per-subject (one dot per unique subject on the day, capped at 3 to avoid visual explosion); tooltip's BookOpen icons inherit the subject color too. Tests stay red so test-vs-assignment cue is preserved.
+  - `WeeklyRecapModal` "Where your week went" rows — bullets are now per-subject color instead of a single indigo.
+  - `SubjectDetailModal` — title swatch + the color picker UI itself.
+- **Privacy** — pure client-side, no new network, no PII off-device. `gg_subject_color_overrides` is a `{ subject_name: int }` map; subject names already live unencrypted in `Assignment.subject` / `Test.subject` so this isn't widening any surface.
+- **Why a student notices it:** the app had a wave of subject-aware features ship over the past 2 days (SubjectEffortIndex, TestReadinessPanel, SubjectDetailModal, NextTestCountdown, WorkloadForecast). Each picked its own one-off color story — usually plain indigo dots or no color at all — so a student looking at "Math" on the dashboard had no visual handle on it across panels. Now every Math surface uses the same hashed color, every Science surface uses a different one, and the SubjectDetailModal lets the student override if the auto-pick clashes. A 13-year-old can recognize their classes at a glance the way a calendar app like Google Calendar lets them recognize their groups. Multi-shift backlog item — flagged 4+ shifts, finally shipped.
+  - feat: 1f32360 + beaf827
+
+### Added (web) — `SubjectEffortIndex` per-subject 7-day sparkline strip
+
+- **`src/components/dashboard/SubjectEffortIndex.jsx`** — each subject row now has a small 7-bar strip on the right showing minutes per day across the past 7 days, oldest → today. Bars are rendered in the subject's color (faded for past days, full opacity for today). A row that's "75 min · Solid" was previously opaque on rhythm — was that 75 min crammed Mon morning, or 25 min × 3 spread Tue/Thu/Sat? Now visible at a glance. Bar height scales against the subject's own busiest day (not panel-wide max) so a low-minutes subject still shows its rhythm clearly.
+- `loadRecentSessions` now returns `{ sessions: [{assignment, dayIdx}], dayLabels: [...]}` so the per-subject strip can accumulate minutes per day in a fixed-length array. dayIdx 0 = oldest in window, WINDOW_DAYS-1 = today.
+- **Why a student notices it:** flagged in 4 prior shifts' "What I didn't get to" backlog. Closes the daily-vs-weekly view gap in this panel — the subject row now shows both the totals and the rhythm.
+  - feat: 1f32360
+
+### Added (web) — `WeeklyRecapModal` per-subject intention completion breakdown
+
+- **`src/components/dashboard/WeeklyRecapModal.jsx`** — under the existing "X% of sessions hit their goal" headline, when 2+ subjects each have 2+ rated intention sessions in the week, render a small breakdown: `Math   90% · 4` / `History  40% · 5` etc. Resolves session.assignment → subject the same way SubjectEffortIndex does (assignment-name lookup, "Study: <test>" unwrap, untagged → "Other" — and Other is dropped from the breakdown since a plain Pomodoro with an intention has nothing actionable per-subject).
+- Each row uses the new subject color dot for visual consistency with the rest of the recap.
+- **Why a student notices it:** flagged in 3 prior shifts' "What I didn't get to" backlog. The headline pct ("70% hit their goal") flattens out signal — a student averaging 70% across all subjects might have 90% on Math but 40% on the class they're trying to avoid. The breakdown surfaces *which* subject's plans actually landed and which drifted, so the student knows where to redirect the following week.
+  - feat: 26200c2
+
+### Fixed (web) — 3 backlog mountedRef gaps shipped together
+
+- **`src/pages/Friends.jsx`** — the friend-code-generation effect (`secureEntity("StudentProfile").update(profile.id, { friend_code: newCode })`) had no unmount guard. A student navigating off `/Friends` during the 1-3s update + invalidate window fired `setFriendCodeReady(true)` (catch branch) on the unmounted page. Real bug, very narrow window — flagged in the prior shift. Added `let cancelled = false` + cleanup to skip both the `invalidateQueries` and the catch's `setFriendCodeReady`.
+- **`src/components/dashboard/PickForMeButton.jsx`** — the 60ms confetti `setTimeout` after `openModal()` was unguarded. A double-click that opened the modal then immediately closed it (or any unmount in the 60ms window) still dispatched the canvas-confetti draw to a body-attached canvas no one was looking at. Mostly cosmetic but the unguarded timer was sloppy. Added `confettiTimerRef` cleared in the openModal handler (so a back-to-back re-open replaces, not stacks) and on unmount.
+- **`src/components/admin/AnonymizationToggle.jsx`** — admin-only `anonymizeSchoolStudents` server function touches every student row in the school; on a real CMS-sized roster that's a multi-second call. Admin can switch tabs / leave AdminDashboard mid-call. Without the guard, `setResult` / `setLoading(false)` / `toast.success` / `onComplete` fired on the unmounted toggle. Standard `mountedRef` gate added on every `setState` after the await and in the finally. Same shape as the dozen other LLM/network handlers guarded across recent shifts.
+  - fix: 48e9414
+
+---
+
 ## [Unreleased] — 2026-04-30 10:18 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
