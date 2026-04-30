@@ -17,6 +17,42 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-04-30 14:07 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Configurable Pomodoro / break timer lengths ⏱️
+
+- **`src/lib/pomodoroLengths.js`** (new) — single source of truth for the student's preferred work / short-break / long-break minutes. `loadLengths` / `saveLengths` / `resetLengths` / `isCustomized` API; `LENGTH_RANGES` clamps at `work: 5–90`, `short: 1–30`, `long: 5–60`; `DEFAULT_LENGTHS = {work: 25, short: 5, long: 15}`. localStorage key `gg_pomodoro_lengths`. Corrupted entries clamp back to defaults so a bad save can't render an unusable timer. Pure client-side, no PII.
+- **`src/pages/FocusTimer.jsx`** — new collapsible editor under the mode tabs: a pill summary (`Settings2` icon + "25 / 5 / 15 min" + an indigo "custom" badge once edited) expands to three inline number inputs with subject-color dots, a "Reset to default" button, and a Save/Cancel bar. Enter saves, Escape cancels. The whole `MODES` map is now memoized off the lengths state, so the ring/clock/mode tabs update live. Mid-session edits *clamp* `secondsLeft` to the new mode total — without the clamp, shrinking a 50-min session to 25 mid-run leaves `secondsLeft (1800) > totalSeconds (1500)`, sending the SVG ring's `strokeDashoffset` negative and rendering the ring fully drawn / inverted. When idle, the clock snaps to the new duration. The "X min of focused study today" summary now sums per-session minutes instead of multiplying count × 25 (legacy rows fall back to 25), and each new completed session stamps `minutes` onto the localStorage row so `loadFocusHistory` and `PersonalBests.computeFocusBests` keep historical aggregates correct after a length change.
+- **`src/components/dashboard/PomodoroTimer.jsx`** (the dashboard floating widget) — durations come from `loadLengths()` at mount; `MODE_META` is now keyed by `lengthKey` (`work` / `short` / `long`) so the same shared library powers both the dedicated FocusTimer page and the floating dashboard widget. A student who sets 50/10/15 on the FocusTimer page sees the floating widget honour the same timings on next page load.
+- **Why a student notices it:** flagged in 3 prior shifts' "what I didn't get to" backlog. The classic Pomodoro 25/5/15 isn't right for everyone — students who do 50/10 deep work blocks, or younger students who want shorter 15/5 sessions, were forced to ignore the built-in timer or use a separate app. Now the timer adapts to how *they* study, and the existing weekly-goal / heatmap / personal-bests panels all aggregate accurately against whichever lengths they prefer.
+  - feat: 895b5e6 + 5905357
+
+### Added (web) — Subject Color System extended to 5 more surfaces 🎨
+
+- **`src/components/assignments/AssignmentCard.jsx`** — the subject `Badge` on every assignment card now leads with a 2px subject-color dot, and the badge border is tinted in the same hue. A student scrolling /Assignments now sees Math cards / Science cards / History cards distinguished by color in addition to the subject text.
+- **`src/components/tests/TestCard.jsx`** — the subject label on every test card gets a 2px dot before it, and the label text colour switches from the hard-coded purple-600 to the subject's hashed hex. Tests stay visually distinct from assignments via their existing `FlaskConical` icon and red urgency badges.
+- **`src/components/dashboard/StudySchedule.jsx`** — each AI-generated study-block's subject sub-line gets a 1.5px dot. The Dashboard's daily plan now inherits the same subject visuals as the rest of the app so the student can scan "OK, two Math blocks plus one Science block today" without reading every label.
+- **`src/pages/Assignments.jsx` + `src/pages/Tests.jsx`** — the Subject filter dropdown's `SelectItem`s each get a leading 2px swatch. A student picking "Math" from a 12-option dropdown now sees the same color they see on every Math card / Math test, so the dropdown reads as colour-keyed rather than a flat list.
+- **Why a student notices it:** the prior shift wired subject colors into 6 dashboard panels and added the override picker on SubjectDetailModal. This shift extends the same palette to the surfaces a student actually spends time on — the assignment + test card lists they look at multiple times a day, plus the filters they tap to slice them. The "What I didn't get to" of last shift was explicit: WorkloadForecast / GradeTrends / StudySchedule / Tests.jsx / Assignments.jsx / Layout. WorkloadForecast was deliberately skipped — its bars are already dense enough that adding subject dots would crowd them. The other four are wired in this shift.
+  - feat: f92eee5
+
+### Added (web) — `PersonalBests` tiles deep-link to relevant pages
+
+- **`src/components/gamification/PersonalBests.jsx`** — 5 of the 6 record tiles are now `<Link>` to where the underlying data lives: **Most focus / day**, **Best week**, **Pomodoros / day** → /FocusTimer (the 12-week heatmap), **Biggest test climb** → /Tests, **Cards mastered** → /StudyAssistant. Longest streak intentionally stays non-clickable since the heatmap that visualizes it lives on /Achievements (the same page the panel sits on — no point linking to itself). Linked tiles get a small `ArrowUpRight` in the header that lights up indigo on hover, plus a soft border + shadow lift so the affordance reads as clickable.
+- **`computeFocusBests`** — now uses the per-session `minutes` field stamped onto each focus session row by the configurable-length feature above. Legacy rows missing the field fall back to 25 (`FOCUS_WORK_MINUTES_FALLBACK`). So a student who's been doing 50-min sessions for a week sees their best week record correctly reflect that.
+- **Why a student notices it:** flagged in the prior shift's "what I didn't get to". The Personal Bests panel had been a leaderboard of records you couldn't act on — you'd see "Most focus / day · 75 min" and have to navigate manually if you wanted to compare against today. Now tapping the tile drops you into the page where the record makes sense and where you can try to top it.
+  - feat: 338bf96
+
+### Fixed (web) — 2 backlog `mountedRef` gaps shipped together
+
+- **`src/components/dashboard/WeeklySummaryButton.jsx`** — invokes the `weeklySummaryEmail` Base44 function (5–10s on a slow network); the student can navigate Dashboard → Tests / close the desktop app while the request is in flight. Without the guard, `setError` / `setSent` / `setLoading` plus the close-timer's `setOpen` / `setSent` / `setRecipientEmail` / `setRecipientName` all fired on the unmounted button. Standard `mountedRef` gate added on every post-await state set.
+- **`src/pages/StudyRooms.jsx`** — three unguarded async paths: `handleCreate` (StudyRoom.create), `handleJoin` (`studyRoomLookup` find_by_code + optional join), and the invite-deep-link `useEffect`'s `joinFromInvite` (find_by_invite + optional join). Each is 1–3s and the page is freely back-navigable mid-call (closing the create form, hitting browser back). Page-level `mountedRef` + post-await gates added; `finally` only fires `setCreating(false)` / `setJoining(false)` when still mounted. Same shape as the dozen other LLM/network handlers guarded across recent shifts.
+  - fix: 739b696
+
+---
+
 ## [Unreleased] — 2026-04-30 12:18 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
