@@ -17,6 +17,51 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-04-30 10:18 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Personal Bests panel on the Achievements page 🏆
+
+- **`src/components/gamification/PersonalBests.jsx`** (new, ~250 lines) — six-tile grid that turns running totals into personal records the student can try to top. Tiles: **Longest streak** (different from the current streak — walks completed-assignment days for the longest consecutive run, with the date the run ended), **Most focus / day** (largest single-day Pomodoro-minute total over the past 365 days), **Best week** (largest Mon-Sun ISO-week focus-minute total), **Pomodoros / day** (most work blocks completed in one day — separates "marathon two-hour day" from "drip-feed five short blocks"), **Biggest test climb** (max-after-min within any single test's confidence-rating sequence — a test that went 1 → 4 has a +3 climb), **Cards mastered** (highest mastered-count across any single flashcard deck). Each tile is a small gradient icon + the record + a "set on Apr 28" / "Week of Apr 14" / "In one deck" sub-line so it feels like a real moment.
+- **Empty state** — even with zero data the panel still renders with em-dash values and a per-tile "do X to unlock" hint ("Complete an assignment", "Run a Pomodoro session", "Mark a flashcard ✓ Got it") so a brand-new student sees what's possible.
+- **All localStorage reads are Safari-Private-Mode safe** — every `localStorage.getItem` is wrapped in try/catch, every JSON.parse is wrapped, every key iteration is wrapped. The panel never crashes the Achievements page if storage is blocked.
+- **`src/pages/Achievements.jsx`** — slot the panel right after the 16-week activity heatmap and before the Leaderboard, so the student sees their records on the way down the page.
+- **Privacy** — pure client-side. No new network calls. Reads only from existing keys: `gg_focus_sessions_*`, `gg_test_confidence_*`, `gg_flashcard_mastery_*`. No PII off-device.
+- **Why a student notices it:** the Achievements page was a stack of running totals (XP bar, completion heatmap, leaderboard, badges, subject progress). It showed *what you've earned* but nothing the student had personally set as a record they could try to beat. Personal Bests turns flat totals into "I had a 7-day streak in March, I'm at 4 today, can I get to 8?" — a 13-year-old's gamification brain wants to top their own records, not just pile up XP. The data was already being captured by 4 different features (focus, mastery, confidence, completion); this just surfaces it as the bests they actually are.
+  - feat: 3ec193c
+
+### Added (web) — Weekly Focus Goal mini-widget on the Dashboard 🎯
+
+- **`src/components/dashboard/WeeklyFocusGoalMini.jsx`** (new) — slim one-line clickable card showing `Focus this week  ▓▓▓░░  45 / 100 min · 45%` with a thin gradient progress bar (indigo→violet under goal, emerald→teal once hit), the same per-day pace hint as the FocusTimer panel ("~12 min/day for the next 4 days" / "X min today gets you there" on the last day of the week), and a goal-met emerald + Trophy state when the student crosses the line. The whole row is a `<Link>` to `/FocusTimer` so a single tap takes them to where the goal is editable.
+- **Reuses `loadGoal` / `thisWeekMinutes` / `daysLeftInWeek` from `src/lib/focusGoal.js`** — same single source of truth that powers the FocusTimer panel, so the two surfaces never drift. Self-contained `gg_focus_sessions_<date>` walker (the dashboard doesn't have to import FocusTimer just to check engagement).
+- **Render gate** — only renders if the student has had at least one focus session in the past 14 days. Students who haven't started using FocusTimer yet shouldn't see a goal widget for a feature they don't use; matches the same "don't pollute the dashboard" pattern that NextTestCountdown / TestReadinessPanel / WorkloadForecast use.
+- **`src/pages/Dashboard.jsx`** — slotted directly below the Mood / Daily Goals / Today's Focus row, above WorkloadForecast.
+- **Why a student notices it:** flagged in the prior shift's "what I didn't get to" — the Weekly Focus Goal panel shipped two shifts ago lives in full on the FocusTimer page, but a student who's deep in their assignments + tests on the Dashboard had no way to see "where am I on this week's goal" without first clicking into FocusTimer. The goal is a real commitment — surfacing it on the homepage means they see their progress every time they open the app.
+  - feat: f94073c
+
+### Fixed (web) — `FocusTimer.TODAY_KEY` used UTC date but every reader walks local-date keys (real timezone bug)
+
+- **`src/pages/FocusTimer.jsx`** — the writer side of `gg_focus_sessions_<date>` was `new Date().toISOString().slice(0, 10)` (UTC). Every reader walks via `localDateKey(d) = ${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}` (local time): `loadFocusHistory` in this same file, `WeeklyRecapModal.readFocusSessionsForRange`, `DailyCheckout.readFocusMinutesForDate`, `SubjectEffortIndex`, the new `WeeklyFocusGoalMini`, the new `PersonalBests`. For a US Eastern (UTC-5) student at 8pm local on April 30, the local date is April 30 but UTC is May 1 — the session saved under `gg_focus_sessions_2026-05-01` while every aggregate looked at `gg_focus_sessions_2026-04-30`. The session showed up in "Today's sessions" (which used the same TODAY_KEY for read+write so it stayed self-consistent) but immediately disappeared from the 12-week heatmap, the WeeklyRecap "% of sessions hit their goal" stat, the DailyCheckout end-of-day prompt, the SubjectEffortIndex per-subject minutes, and the two new widgets above — for ~5 hours every evening, until midnight UTC. Fix: TODAY_KEY now uses `localDateKey(new Date())`. Going forward writes and reads match. Old sessions saved under UTC-shifted keys still exist; they'll show up on the heatmap one day later than they actually happened, but naturally fall out of the 84-day window in 12 weeks.
+  - fix: 7432dc2
+
+### Fixed (web) — `AIAssignmentChat.SYSTEM_PROMPT` had a stale `TODAY` constant
+
+- **`src/components/assignments/AIAssignmentChat.jsx`** — the `TODAY` constant was a module-level `new Date().toLocaleDateString(...)`, evaluated once when the file was first loaded. A student who opened the chat on Friday and left the tab open over the weekend (typical for a school laptop with the app pinned, or the Electron desktop app that's almost never quit) sent every subsequent message with the LLM still believing "today is Friday." When they then said "this is due Tuesday" or "this is due tomorrow," the LLM resolved the date relative to the stale Friday — so an assignment dated 4 days in the past landed silently on the dashboard already overdue. Fix: SYSTEM_PROMPT is now a template with a `__TODAY__` placeholder filled by `todayString()` at the moment `sendMessage` fires.
+  - fix: c6798b3
+
+### Fixed (web) — `RoomView` had no unmount guard for the quiz-gen LLM, the score-submit, or the initial DB load
+
+- **`src/components/studyroom/RoomView.jsx`** — multiplayer-study-room screen had three unguarded async paths: (1) initial load (`secureEntity("StudyRoom").filter({id}).then(setRoom)` plus the StudyRoomResult fetch) — back-nav or `onLeave` mid-DB-roundtrip fired `setRoom`/`setResults`/`activateQuiz` on the unmounted component; (2) `handleStartQuiz` — host's "Start quiz" button fires an `InvokeLLM` for 8 multiple-choice questions plus a `secureEntity("StudyRoom").update`, the LLM round trip is 8-15s, host can leave the room mid-call and the catch's `toast.error` plus the finally's `setGenerating(false)` fired post-unmount; (3) `handleSubmit` — member's score-submit fires create + filter + optionally update. Standard `mountedRef` gate added (ref starts true, flipped false on unmount), every `setState` after every `await` guarded. Same shape as the prior shifts' guards.
+  - fix: b765a0c
+
+### Fixed (web) — `SharedNoteComposer` had no unmount guard for the file upload + the StudyRoomNote create
+
+- **`src/components/studyroom/SharedNoteComposer.jsx`** — composer lives inside SharedNotesPanel inside RoomView. `handleFile` (multi-second `Core.UploadFile` for a PDF or image) and `handleSave` (`secureEntity("StudyRoomNote").create` network round-trip) both `setState`d after the await. Leaving the room mid-upload / mid-save fired setStates on the unmounted composer.
+  - fix: e590ba6
+
+---
+
 ## [Unreleased] — 2026-04-30 08:15 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
