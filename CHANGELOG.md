@@ -17,6 +17,31 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-04-30 22:15 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — `SubjectManagerModal`: bulk hub for color + weekly goal across every class 🎨🎯
+
+- **`src/components/dashboard/SubjectManagerModal.jsx`** (new, ~280 lines) — closes the prior shift's "what I didn't get to" #5. Until now the only way to set a subject color or weekly study goal was to open `SubjectDetailModal` for that subject (which requires the subject to already exist in the student's assignments / tests / focus history). A brand-new class — say a student adds AP Chemistry to their schedule before the first homework — had no entry point to pre-color or pre-goal it. Now the Dashboard surfaces a "Manage subjects" pill above `SubjectEffortIndex` that opens a single modal listing every subject the student has touched (assignments + tests + saved goals + saved color overrides + custom-typed names) with inline color palette + weekly minute goal editor + 4 quick-set chips (60/90/120/180 min). An "Add a class" input at the top of the modal lets the student type a subject name (e.g. "AP Chemistry"), which gets stored under `gg_custom_subjects` and shown with a Custom badge + Trash icon. Custom entries auto-disappear from the modal once any real assignment / test references them — the rest of the app's subject discovery already covers them. Removing a custom row clears any color override / goal at the same time so the subject doesn't linger as a ghost row.
+- **`src/pages/Dashboard.jsx`** — wires the trigger pill (right-aligned, just above `SubjectEffortIndex`) and the modal itself.
+- **`src/lib/subjectColors.js`** — adds a `listSubjectColorOverrides()` helper alongside the existing list/get/set/clear API. The modal needs to enumerate every subject the student has set a color for but no longer has live assignments / tests for; doing this via the lib (instead of peeking at the `gg_subject_color_overrides` localStorage key directly) means any future change to the storage shape can't silently desync the modal.
+  - feat: 346edd7 · https://github.com/landon-personal/gradeguardnewsync/commit/346edd7
+  - refactor (lib): 27f450d · https://github.com/landon-personal/gradeguardnewsync/commit/27f450d
+
+### Added (web) — Floating `PomodoroTimer` length presets 🍅
+
+- **`src/components/dashboard/PomodoroTimer.jsx`** + **`src/lib/pomodoroLengths.js`** — closes the prior shift's "what I didn't get to" #6 (also flagged 2 shifts in a row). The dedicated `/FocusTimer` page got 5 1-tap presets 3 shifts ago (Sprint 15/3 / Classic 25/5 / Long 30/5 / Deep 50/10 / Marathon 90/15), but the floating widget on /Dashboard / /Assignments / /Tests had no in-widget editor — a student wanting to flip from Classic to Deep had to navigate to /FocusTimer, expand the editor, save. Now a small "Lengths 25/5/15" pill in the panel toggles a 5-chip picker; tapping a chip calls `savePomodoroLengths` (same path the page editor uses). The widget's existing `LENGTHS_CHANGED_EVENT` listener hot-reloads its lengths state, and when idle (not running, `secondsLeft === prior mode total`) the listener also snaps `secondsLeft` to the new mode total — so the visible countdown updates immediately without waiting for a mode switch. Picker is hidden / disabled while the timer is running so a misclick can't truncate a session.
+- **`LENGTH_PRESETS`** + **`matchingPreset(lengths)`** are now exported from `src/lib/pomodoroLengths.js` so the page editor and the floating widget never drift on preset shapes or labels — single source of truth alongside the other Pomodoro length configuration. `src/pages/FocusTimer.jsx` now imports `LENGTH_PRESETS` from the lib instead of defining a local copy.
+  - feat: b1fa694 · https://github.com/landon-personal/gradeguardnewsync/commit/b1fa694
+
+### Added (web) — `SubjectGoalsStrip` "blew past" state 🔥
+
+- **`src/components/dashboard/SubjectGoalsStrip.jsx`** — closes the prior shift's "what I didn't get to" #4. The strip's progress bar was capped at 100% even when minutes were 200% of goal, so a student crushing their target saw the same fully-filled bar as one who just hit it. Now: **(a)** top-right "🔥 +33%" amber pill on the card when `overPct > 0`, **(b)** a small amber-tinted sliver layered over the right-end of the 100%-fill bar (width = `min(30, overPct/4)` percent of the bar so it scales with overage but never dominates), **(c)** drop the trailing 🎉 once the badge is showing — the badge already signals celebration and double emoji read as cluttered. `overPct` capped at 999% so a fluke 30-min goal + 8-hour study day doesn't render a 4-digit pill.
+  - feat: 9a211d4 · https://github.com/landon-personal/gradeguardnewsync/commit/9a211d4
+
+---
+
 ## [Unreleased] — 2026-04-30 20:01 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
