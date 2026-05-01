@@ -17,6 +17,24 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-01 04:05 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Hour-of-day + day-of-week focus pattern card on `/FocusTimer` ⏰
+
+- **`src/components/dashboard/TimeOfDayFocusPattern.jsx`** (new, ~170 lines) — `StudyHistoryInsights` already exposes a 12-week heatmap, streak, and top subjects, but the student couldn't answer "*when* do I actually focus?" — there was no time-of-day surface anywhere in the app. The new card buckets every work-mode session in the existing 12-week `focusHistory` array (the same `loadFocusHistory()` walk `FocusTimer.jsx` already builds) by `completedAt` hour and day-of-week, then renders two compact bar strips: hours 5 AM → 11 PM (most real student sessions land in that band) and Sun → Sat. The hour bars are gray-100 when zero minutes, indigo-200 when populated, and indigo-600 for the contiguous peak band. Peak detection grows the band to neighboring hours that hit ≥70% of the peak (capped at 3 hours wide), so "I always study between 3 and 5 PM" shows as a single shaded range instead of pinning to a single hour. Same logic for the strongest day. Headline above the bars: "*You focus most around 3–5 PM, and your strongest day is Tuesday.*" Auto-hides when there's no session data so brand-new accounts don't see a zeroed strip.
+- **`src/pages/FocusTimer.jsx`** — wired immediately after `<StudyHistoryInsights />` so the analytics stack flows top-to-bottom: 12-week heatmap → time-of-day pattern. Shares `focusHistory` so there's no extra localStorage walk.
+- **Why a student notices it:** the dashboard had been growing on the *what* axis (which subjects, which days, how many minutes) but had nothing on the *when* axis. Once a student sees "your strongest day is Sunday," they can plan harder material there. First time GradeGuard has surfaced this dimension at all.
+  - feat: 2c0bff4 · https://github.com/landon-personal/gradeguardnewsync/commit/2c0bff4
+
+### Fixed (web) — `FloatingStreakCounter` at-risk gate was stale until something else re-rendered
+
+- **`src/components/dashboard/FloatingStreakCounter.jsx`** — last shift's at-risk activation fix gated the warning on `new Date().getHours() >= 18` inside a `useMemo` keyed on `[streak, assignments]`. That works fine for a student opening the dashboard at 7 PM (the memo's first run picks up the gate), but a student who has the dashboard open at 5:59 PM with an at-risk streak would never see the warning fire — the wall clock crossing 6 PM doesn't trigger a re-render, so the memo keeps its stale `isAtRisk = false`. New `clockTick` state + a self-rescheduling `setTimeout` that fires exactly at the next 6 PM boundary (or local midnight, whichever comes first) bumps the tick and forces the memo to recompute. The timer is added to the memo's deps so the re-run actually picks up the new wall time. Cleared on unmount.
+  - fix: 2e4e042 · https://github.com/landon-personal/gradeguardnewsync/commit/2e4e042
+
+---
+
 ## [Unreleased] — 2026-05-01 02:08 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
