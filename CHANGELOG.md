@@ -48,6 +48,22 @@ Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, a
 - **`src/components/dashboard/GradeTrends.jsx`** — the `X / Y min` goal chip rendered next to each subject row read from `thisWeekMinutesBySubject` inside a memo keyed only on `[assignments, tests]`. A focus session does NOT mutate the assignments / tests query data — it writes to `gg_focus_sessions_<date>` localStorage. So a Pomodoro logged on /FocusTimer or via the floating widget never pushed the chip on /Dashboard until a hard refetch (the prior comment claimed "a fresh Pomodoro pushes the bar" — that was incorrect). Same shape `SubjectGoalsStrip` / `SubjectEffortIndex` / `WeeklyFocusGoalMini` already use: `gg-focus-session-recorded` listener (same-tab) + native `storage` event (cross-tab) + self-rescheduling `setTimeout` at next local midnight for Sunday-anchored week rollover.
   - fix: ef3ddf5 · https://github.com/landon-personal/gradeguardnewsync/commit/ef3ddf5
 
+### Fixed (web) — Dashboard passes full `tests` (not `activeTests`) to `GradeTrends`
+
+- **`src/pages/Dashboard.jsx`** — caught while auditing the new test-reflection merge: `activeTests` filters to `days >= 0` (today + future), which is correct for `NextTestCountdown` / `TestReadinessPanel` / etc. but WRONG for the new reflection merge in `subjectGradeTrends` — reflections are by definition logged for tests that already happened. Without this fix, a student logging "🎉 Aced · 92%" couldn't see that grade in the trendline because the test was filtered out before reaching the merge loop. `SubjectDetailModal` still filters tests internally for its "Upcoming tests" section (`t._daysLeft >= 0`); `weekBySubject`'s `Study: <test>` resolver benefits from seeing past-dated rows when matching session.assignment → subject. The Dashboard's tests query already filters to status=`upcoming`, so this only widens the prop to include past-dated rows the student hasn't marked completed — exactly the rows reflections are written for.
+  - fix: 6ba073c · https://github.com/landon-personal/gradeguardnewsync/commit/6ba073c
+
+### Fixed (web) — `CompletionHeatmap` 16-week grid midnight rollover on `/Achievements`
+
+- **`src/components/gamification/CompletionHeatmap.jsx`** — `today = startOfDay(new Date())` was computed during render outside any memo / effect, and the `days` memo depended on it. Without a clockTick trigger, no render fires at midnight, so a student who left /Achievements open across the boundary saw yesterday's column still rendered as "today" + the oldest column not falling out of the 16-week window until the assignments query happened to refetch. Same self-rescheduling `setTimeout` to next local midnight + wrapped `today` in `useMemo([clockTick])`. Same family as the rollover fixes shipped on `FloatingStreakCounter` / `StudyHistoryInsights` / `NextTestCountdown` / `WorkloadForecast` / `WeeklyFocusGoalMini` / `DailyGoalsCard` / `MoodCheckIn` / `DailyCheckout` / `ProgressCharts` / `TestReadinessPanel` / `SubjectFocusHeatmap` / `SubjectEffortIndex` / `SmartTodoList` / `SubjectGoalsStrip` / `GradeTrends`.
+  - fix: afc0332 · https://github.com/landon-personal/gradeguardnewsync/commit/afc0332
+
+### Hygiene (web) — drop 3 unused `eslint-disable` directives
+
+- **`src/components/dashboard/SubjectManagerModal.jsx`** / **`src/components/assistant/FlashcardViewer.jsx`** / **`src/components/dashboard/SubjectDetailModal.jsx`** — `npx eslint .` flagged "Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')" on three useMemo / useEffect deps blocks where the deps had since been adjusted. Removed the directives; `npm run lint` stays clean.
+  - chore: 0e9aa3a · https://github.com/landon-personal/gradeguardnewsync/commit/0e9aa3a
+  - chore: ef278d0 · https://github.com/landon-personal/gradeguardnewsync/commit/ef278d0
+
 ---
 
 ## [Unreleased] — 2026-05-01 12:29 UTC shift
