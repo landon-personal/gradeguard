@@ -17,6 +17,36 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-01 22:27 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Test outcome timeline panel on `/Achievements` 🎯
+
+- **`src/components/gamification/TestOutcomeTimeline.jsx`** (new, ~210 lines) + **`src/pages/Achievements.jsx`** — `/Achievements` now surfaces test reflection data for the first time. New panel between `PersonalBests` and the Leaderboard renders the student's chronological test-outcome journal: every saved reflection, joined to the test name + subject color, ordered newest-first. Three sections gated by sample size:
+  - **Header strip (always when 1+ reflections):** count of reflections logged, average outcome label (Bombed → Aced), count or % of "Solid+" outcomes (4 or 5 — the "this went well" cluster).
+  - **Stacked outcome distribution bar (>= 3 reflections):** five-segment horizontal bar with each outcome's share by raw count, plus an emoji+count legend underneath. Below 3 samples a single "Bombed" pinning 100% of the bar would mislead, so the bar only kicks in once there's enough to read against.
+  - **Chronological timeline (newest first, capped at 12 rows):** subject color dot, test name, subject + relative date ("today" / "3 days ago" / "last week" / "Apr 12"), optional grade %, outcome chip ([💀 Bombed] / [😬 Struggled] / [😐 Okay] / [🙂 Solid] / [🎉 Aced]). 13th+ entry shows a quiet "X more reflections in your record" footer so a power-user student knows the panel isn't truncating data, just the visible window.
+- **Different from existing surfaces:** `TestReflectionCard` (Dashboard) is a *prompt* surface for unrated past tests in the last 14 days plus a calibration-insight strip. `PersonalBests` extracts lifetime *records* (longest streak, biggest test climb). `GradeTrends` shows numeric grade-over-time. None of them showed the actual *story* of every test outcome — the journal of how the year is going, in order, with the optional grade % the student attached. First time `/Achievements` reads `gg_test_reflection_*` localStorage at all.
+- **Loading:** new `['tests-all', userEmail]` queryKey on `/Achievements` fetches every test (not just upcoming) — distinct from the Dashboard's `['tests', userEmail]` (which filters to upcoming-only) so the two surfaces don't fight over cache. The timeline joins test ids to names + subjects via this fetched list; reflections whose test was deleted server-side render as "Unknown test" so a stale localStorage entry doesn't disappear from the journal silently.
+- **Live refresh:** listens for `gg-test-reflection-changed` (same-tab) and `storage` events on `gg_test_reflection_*` keys (cross-tab) so a student logging a reflection from the Dashboard or `/Tests` sees the timeline update without remount.
+- **Auto-hides** until the first reflection lands — `/Achievements` already has a sparse empty state for brand-new accounts via PersonalBests gating; piling on a "no test reflections yet" tile would just be noise.
+- **Why a student notices it:** `/Achievements` is the "how am I doing" page, but until now it captured streaks + XP + flashcard progress without surfacing test outcomes — the actual end-of-the-year question every student cares about. A student with 8 logged reflections opens `/Achievements` and sees their full test journal at a glance, including which tests they aced and which ones tanked, in the same panel.
+  - feat: a5ecb23 · https://github.com/landon-personal/gradeguardnewsync/commit/a5ecb23
+
+### Fixed (web) — Test delete now clears reflection + study-plan offset localStorage
+
+- **`src/pages/Tests.jsx`** + **`src/lib/testStudyPlan.js`** — `Tests.deleteMutation` already cleaned up `gg_test_confidence_<id>` + the flashcard mastery deck on delete. Two newer per-test localStorage keys had been added since but missed the cleanup pass: `gg_test_reflection_<id>` (post-test outcome rating) and `gg_test_study_plan_offset_<id>` (per-test +5/−5 daily target tweak). Both leaked silently when a student deleted a test. Functionally harmless on its own, but the new `TestOutcomeTimeline` walks every reflection key in localStorage, so deleted tests reappeared in the journal as "Unknown test" rows because the entity was gone but the reflection blob was still there. Adds a `clearOffset()` helper to `testStudyPlan.js` (`clearReflection` already existed in `testReflection.js`) and wires both into the deleteMutation onSuccess path next to the existing cleanup calls.
+  - fix: fec5800 · https://github.com/landon-personal/gradeguardnewsync/commit/fec5800
+
+### Fixed (web) — `StudySchedule` surfaces a "From yesterday" banner when the schedule crosses midnight
+
+- **`src/components/dashboard/StudySchedule.jsx`** — closes prior shift backlog (20:11 UTC #3). The schedule prompt embeds today's wall-date string at generation time (`Today's date: 2026-05-01`), and the LLM writes blocks with phrasing like "tonight" / "right after school" / "before bed" — all relative to the moment of generation. A student who generated a schedule at 11:55 PM, then opened the dashboard the next morning, was acting on yesterday's plan with no visible signal.
+- Stamps the schedule's local-date key into state at `setSchedule` time. Self-rescheduling `clockTick` at next local midnight bumps state when the wall date rolls (so a student who left the dashboard open across midnight sees the staleness immediately, not after the next interaction). When `scheduleDateKey !== today's localDateKey`, an amber "From yesterday" banner with a "Refresh for today" button renders in-place above the daily tip — one-tap regenerate without scrolling up to the header Refresh. Banner hides while `loading` so the UI doesn't flash the warning during the rebuild itself.
+  - fix: 5b7e086 · https://github.com/landon-personal/gradeguardnewsync/commit/5b7e086
+
+---
+
 ## [Unreleased] — 2026-05-01 20:11 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
