@@ -17,6 +17,39 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-01 14:02 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Test reflection grade % merged into `GradeTrends` per-subject trendline 🎯
+
+- **`src/lib/testReflection.js`** + **`src/lib/gradeUtils.js`** + **`src/components/dashboard/GradeTrends.jsx`** + **`src/components/dashboard/SubjectDetailModal.jsx`** — closes prior shift backlog (12:29 UTC #1, 10:04 UTC #1, flagged 2 shifts running). Until now a logged post-test reflection's optional `gradePct` was write-only — TestReflectionCard / TestCardReflection both stored it in `gg_test_reflection_<testId>`, but no surface read it. A Math student who logged "🎉 Aced · 92%" on a test saw the emoji on the reflection card, but the per-subject `GradeTrends` sparkline ignored the score entirely.
+- **New `loadAllReflections()`** in `testReflection.js` walks every `gg_test_reflection_*` localStorage key and returns a `{testId -> reflection}` map. Defensive per-key parse so one corrupt blob doesn't drop the rest.
+- **`subjectGradeTrends(assignments, tests, reflections)`** now optionally merges reflection grades into each subject's chronological entry list. A reflection with a numeric `gradePct` becomes a real data point alongside Assignment grades — same percentage scale, ordered by `test_date` (falling back to the reflection's `ts`). Reflections with `null` gradePct are skipped — they still drive the calibration insight but have no percent to plot. Each entry is now tagged `kind: "assignment" | "test"` so callers can render them differently.
+- **`GradeTrends`** seeds reflections via `loadAllReflections` + listens for `gg-test-reflection-changed` (same-tab) and the native `storage` event (cross-tab) so a fresh reflection re-renders the sparkline without a remount. Test points render as hollow rings (vs. filled dots for assignments); the panel footer now reads "graded assignments + logged test scores · hollow dots = test reflections."
+- **`SubjectDetailModal`** picks up the same hollow-ring treatment in the larger sparkline, and the "Recent scores" list now tags test rows with a small purple `TEST` chip — so a 92% from a reflection isn't conflated with a 92% on an assignment.
+- **Why a student notices it:** the trendline is the dashboard's most-glanced grade signal. A student crushing tests but no recent assignments saw "Steady" on Math even when their predictions + reflections had been climbing for weeks; now the test grade is part of the trend that drives the "Trending up / steady / down" badge. Closes the loop on the entire test reflection feature shipped 2 shifts ago.
+  - feat: 1fd3ccc · https://github.com/landon-personal/gradeguardnewsync/commit/1fd3ccc
+
+### Added (web) — Stale-subject pruning in `SubjectManagerModal` 🗂️
+
+- **`src/components/dashboard/SubjectManagerModal.jsx`** — closes prior shift backlog (12:29 UTC #4, flagged 4+ shifts running). A student who graduated from "AP Bio" silently kept its weekly goal + color override forever; a custom-typed class abandoned 6 months ago lingered as a ghost row. Now the modal surfaces these and offers one-tap cleanup. A subject is "stale" if it has a saved goal / color override / or a custom-only row AND no assignment / test references it in the past 90 days. Each stale row gets a small amber `Stale` chip; the modal shows an amber summary strip above the list ("3 stale classes · no activity in 90+ days") with a one-tap "Clear stale" button that drops the goal + color override + custom-only membership for every stale row at once. Subjects with live work in the window are never touched. Single bulk-clean pattern preserves the existing per-row Trash icon for selective custom-only removal.
+- New helpers: `lastActivityMs(subject)` walks both assignments + tests for the most recent `due_date` / `updated_date` / `created_date` / `test_date` matching the subject; cutoff is `now - 90d`. `hasColorOverride(subject)` (defensive try/catch around `listSubjectColorOverrides`) so a Safari Private Mode read failure doesn't take the modal down. `isCustomOnly` refactored to a pure helper `isCustomOnlyOf` so the bulk-clean handler can call it without closing over render state.
+- **Why a student notices it:** the per-subject color + weekly goal feature has been growing for ~10 shifts; this is the first surface that lets a student *prune* old data, not just edit it. The amber strip is silent for a fresh-account student (no stale rows to surface) so it doesn't add visual weight to a clean modal.
+  - feat: 1066165 · https://github.com/landon-personal/gradeguardnewsync/commit/1066165
+
+### Fixed (web) — `SubjectGoalsStrip` refresh on session-recorded + at midnight rollover
+
+- **`src/components/dashboard/SubjectGoalsStrip.jsx`** — the strip wired into `Dashboard.jsx` between `WeeklyFocusGoalMini` and `WorkloadForecast` had two staleness windows: (1) the Dashboard parent does NOT bump `refreshKey`, so a Pomodoro logged from the floating widget (or on /FocusTimer in another tab) didn't push the strip's "X / Y min" counts on /Dashboard — the memo only re-ran on assignments / tests prop changes; (2) `thisWeekMinutesBySubject` is Sunday-anchored, so a student leaving the dashboard open across Saturday → Sunday saw last week's minutes pinned to "this week" because the memo had no `clockTick` dep. The /FocusTimer copy was fine (it bumps `refreshKey` on `sessionsToday.length`). Fix is internal so the component is robust regardless of how the parent passes refreshKey: `gg-focus-session-recorded` (same-tab) + native `storage` event (cross-tab) listeners + self-rescheduling `setTimeout` at next local midnight. Same shape `SubjectEffortIndex` / `SubjectFocusHeatmap` / `WeeklyFocusGoalMini` already use after their respective fixes.
+  - fix: fb8a4b8 · https://github.com/landon-personal/gradeguardnewsync/commit/fb8a4b8
+
+### Fixed (web) — `GradeTrends` inline goal chip refreshes on session write + at midnight
+
+- **`src/components/dashboard/GradeTrends.jsx`** — the `X / Y min` goal chip rendered next to each subject row read from `thisWeekMinutesBySubject` inside a memo keyed only on `[assignments, tests]`. A focus session does NOT mutate the assignments / tests query data — it writes to `gg_focus_sessions_<date>` localStorage. So a Pomodoro logged on /FocusTimer or via the floating widget never pushed the chip on /Dashboard until a hard refetch (the prior comment claimed "a fresh Pomodoro pushes the bar" — that was incorrect). Same shape `SubjectGoalsStrip` / `SubjectEffortIndex` / `WeeklyFocusGoalMini` already use: `gg-focus-session-recorded` listener (same-tab) + native `storage` event (cross-tab) + self-rescheduling `setTimeout` at next local midnight for Sunday-anchored week rollover.
+  - fix: ef3ddf5 · https://github.com/landon-personal/gradeguardnewsync/commit/ef3ddf5
+
+---
+
 ## [Unreleased] — 2026-05-01 12:29 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
