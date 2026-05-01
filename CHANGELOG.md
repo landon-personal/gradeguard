@@ -17,6 +17,39 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-01 20:11 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Distraction insights strip in `WeeklyRecapModal` 🎯
+
+- **`src/components/dashboard/WeeklyRecapModal.jsx`** — closes prior shift backlog (18:26 UTC #1, "WeeklyRecapModal pulls Mon–Sun aggregates but ignores the optional distractions field entirely"). The Sunday recap modal already loads `gg_focus_sessions_<date>` for Mon–Sun and runs through it twice (focus minutes + intention completion). It was ignoring `s.distractions` entirely. Adds a sibling `previousWeekRange()` helper + a separate `lastWeekFocusSessions` memo so the new strip can show a vs-last-week trend chip with the same ±2 deadband `DeepWorkInsights` already uses (a 1–2 distraction noise swing reads as "Steady" rather than a misleading +1 trend).
+- Strip lives between the intention-completion strip and the subject-goals strip, so the modal now reads top-to-bottom as: stats grid → intention completion → distraction patterns → subject goals → top subjects → coming up. Each section is independently null-gated so a fresh-account modal stays compact.
+- **Auto-hides** when (a) no work sessions logged this week (no signal at all) or (b) zero distractions across both this AND last week (feature unused → showing "0 distractions, no trend" would be noise). The trend chip itself only renders when last week had any data so a brand-new account can't see a misleading "+0 vs nothing" pill.
+- Headline: `X distraction(s) this week` with a sub-line `N of M sessions ran clean (P%)`. Mirrors the `DeepWorkInsights` clean-session % semantics so both cards agree on what "clean" means (a session with no logged taps).
+- **Why a student notices it:** the Sunday recap is the modal a student actually *reads* for "how was my week?" The previous version surfaced focus minutes, intention pct, subject goals, top subjects, coming-up — all the *output* dimensions. Distractions are an *input* dimension (how present was I?), and seeing it next to the output gives the week a fuller picture. A student seeing "62 min, 78% intention pct, 4 distractions (down 5 from last week)" gets a different story than just the output stats.
+  - feat: a351ddc · https://github.com/landon-personal/gradeguardnewsync/commit/a351ddc
+
+### Added (web) — Clean focus streak tile in `PersonalBests` on `/Achievements` 🎯
+
+- **`src/components/gamification/PersonalBests.jsx`** — closes prior shift backlog (18:26 UTC #2 distraction streak surface + #4 promote distraction insight to /Achievements, in the same commit). 7th personal-best tile: longest run of consecutive calendar days where the student had at least one focus session AND every session ran with zero logged distractions. Days with no focus session at all break the streak — "I didn't study" isn't the same record as "I studied and stayed focused", so the empty-day-counts-as-clean shortcut is intentionally rejected.
+- **Gating:** only renders when the student has logged at least one distraction tap somewhere in their 365-day window. Otherwise the record is meaningless ("every day with a session" is "clean" by default when the feature was never engaged with) and the tile would mislead. A student who *has* logged distractions but never strung even one clean day surfaces "0 days · run a focus session with no distractions tapped" as a call-to-action — the tile still earns its grid slot.
+- **Adjacency check** requires both endpoints of a streak day to actually be clean days. So a 4-clean / 1-noisy / 3-clean week reads as a 4-day record, not 7. Walks oldest → newest using a Set of `YYYY-MM-DD` keys so calendar-day exactness doesn't get warped by DST or the user's local timezone offset.
+- **Why a student notices it:** first time the gamification page reads the `gg_focus_sessions_*` distraction field at all. PersonalBests is the dashboard's "all-time records" panel — the rest of the tiles (longest streak, most focus / day, best week, Pomodoros / day, biggest test climb, cards mastered) are what a student naturally tries to top each week. The clean-streak tile gives the distraction tap-counter feature a first-class lifetime record to chase, alongside the existing intra-window insights on `DeepWorkInsights`.
+  - feat: 3acd611 · https://github.com/landon-personal/gradeguardnewsync/commit/3acd611
+
+### Fixed (web) — Same-card double-tap no longer self-matches in `MemoryMatch`
+
+- **`src/components/assistant/MiniGames.jsx`** — `handleFlip`'s bail-out only checked `matched.has(idx) || flipped.size >= 2`. A user double-tapping the same card on the second flip slipped through (`flipped.size` was still 1 because adding a value already in the Set is a no-op), the timeout ran with `first === idx`, and the trivially-true `pairs[first].pair === pairs[idx].pair` comparison marked the card as matched on its own — score and progress counter both advanced as if a real pair had been found, and the card stayed face-up. Adds `flipped.has(idx)` to the guard so second-tap-same-card is a no-op. Found via the bug-hunting playbook on a deliberate read of game state machines.
+  - fix: 56bc665 · https://github.com/landon-personal/gradeguardnewsync/commit/56bc665
+
+### Fixed (web) — `AIProgressBar` no longer resets to step 0 on parent re-render in uncontrolled mode
+
+- **`src/components/ai/AIProgressBar.jsx`** — the effect dep was the raw `statuses` array. A caller passing an inline-literal (`statuses={["A","B","C"]}`) gives a fresh reference every render, so the effect re-ran on every parent commit, `setInternalActiveIndex(0)` reset the bar, and the interval restarted — the visible progress would snap back to "Sending request" mid-animation each time the parent committed. Re-keys on `statuses.length` instead. The inner loop's only structural read is `Math.min(index + 1, statuses.length - 1)`, so length is the load-bearing dimension; label-only edits stop resetting the bar (the right tradeoff for uncontrolled mode — controlled mode handles streaming labels via `activeIndex`). No current caller actually trips this (TestForm, AssignmentForm, MiniGames callers all use the default DEFAULT_STATUSES module constant; SmartTodoList and StudyAssistant use controlled mode), but a future caller passing custom inline statuses without `activeIndex` would have hit it silently.
+  - fix: 835377a · https://github.com/landon-personal/gradeguardnewsync/commit/835377a
+
+---
+
 ## [Unreleased] — 2026-05-01 18:26 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
