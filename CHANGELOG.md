@@ -17,6 +17,37 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-01 08:13 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — In-session distraction tap-counter on `/FocusTimer` 🔔
+
+- **`src/pages/FocusTimer.jsx`** — closes prior shift's "what I didn't get to" #4 (Distraction tracker during a Pomodoro). A small "I got distracted" pill is now visible only while a work session is running (`mode === "work" && running`). Each tap increments an in-session counter; the count is then stamped onto the `gg_focus_sessions_<date>` row at `handleComplete` alongside `minutes` / `intention` / `assignment`. Pill state shows "I got distracted" before the first tap and "{N} distraction{s} so far" after — same amber color tokens as the matched-pair badge in the history modal so a student instantly recognizes the dimension. Counter resets on `switchMode`, `handleReset`, and `handleComplete` so a fresh work session always starts at 0; mid-session reload also clears it (the value is behavioral, not load-bearing — first time GradeGuard collects it at all). Only persisted for work sessions and only when at least one tap landed (a row's missing `distractions` field stays distinct from a recorded 0 — that "feature wasn't used" vs. "session had zero distractions" distinction matters for any future analytics layer that backfills).
+- **`src/pages/FocusTimer.jsx`** — the Today's-sessions header pill now also surfaces a small "🔔 N" amber badge next to the focus-session count, summing distractions across today's work sessions. Tooltip explains the source so a student isn't confused by a number floating next to the session count.
+- **`src/components/dashboard/FocusSessionHistoryModal.jsx`** — every row in the 14-day chronological log now reads the optional `distractions` field through the existing `loadAllSessions` walker and renders an inline "🔔 N" amber pill below the time/duration line when nonzero. Rows with zero distractions render unchanged so the historical log isn't visually cluttered for sessions where the feature wasn't used. The modal header summary picks up an aggregate "X distractions logged" suffix when the 14-day total is nonzero.
+- **Why a student notices it:** previously a Pomodoro was a binary "you completed a 25-min session" event. The distraction counter adds a *quality* dimension to the session — a student crushing 4 sessions in a row but tapping 12 distractions can see they're not in deep work and adjust their environment. First Pomodoro habit-builder feature in the app that surfaces session quality, not just minutes. Sets up future surfaces (e.g., "you get distracted most around 8 PM" in `TimeOfDayFocusPattern`) once enough data lands.
+  - feat: 3b6f031 · https://github.com/landon-personal/gradeguardnewsync/commit/3b6f031
+
+### Added (web) — `TestStudyPlan` per-test +5/−5 daily target overrides
+
+- **`src/lib/testStudyPlan.js`** (new) + **`src/components/dashboard/TestStudyPlan.jsx`** — closes prior shift's "what I didn't get to" #2. The auto-curve (15→25→45→60 min scaled by 1.6×–0.4× confidence multiplier) is opinionated; a power-user might want to override (e.g., "I always do 60 min for Bio regardless of where the curve says"). Each row now has compact `−` / `+` buttons that step the target by 5 min. Offset is per-test, persisted to `gg_test_study_plan_offset_<testId>` localStorage; zero values are removed (no sentinel keys for students who revert back to default). Final target = `max(0, autoCurve + offset)` so a negative offset that drops a row below 0 hides the row via the existing `target>0` visibility gate. Override badge ("+15" / "−10") shows next to the target only when nonzero, so the auto-curve case stays visually clean. Down button disables when next step would go below 0; up button caps at +240 min. Save dispatches a `gg-test-study-plan-offset-changed` CustomEvent; the row listens (plus the native `storage` event for cross-tab) so the change is reflected immediately.
+  - feat: 1a1447e · https://github.com/landon-personal/gradeguardnewsync/commit/1a1447e
+
+### Fixed (web) — `NextTestCountdown` / `WorkloadForecast` / `WeeklyFocusGoalMini` midnight-rollover
+
+- **`src/components/dashboard/NextTestCountdown.jsx`** — `useMemo([tests])` captured `today` on first mount. A student who left the dashboard open across midnight saw the "1 DAY" badge stay "1 DAY" instead of flipping to "TODAY" until the tests array changed (which won't happen at the boundary). Added the same self-rescheduling `clockTick` `setTimeout` pattern shipped on `FloatingStreakCounter` / `DailyGoalsCard` / `MoodCheckIn` / `DailyCheckout`, keyed into the existing memo's deps so the recompute picks up the new wall date.
+- **`src/components/dashboard/WorkloadForecast.jsx`** — `useMemo([assignments, tests])` builds its 14-day forecast around `startOfDay(new Date())` on first mount; same midnight-staleness as above. Today's column stayed pinned to yesterday's date and the forecast didn't slide forward by one day. Same `clockTick` pattern.
+- **`src/components/dashboard/WeeklyFocusGoalMini.jsx`** — `useMemo([])` ran once at mount and never updated, so the this-week minutes total never refreshed *at all*: not at midnight, not when a Pomodoro landed. Patched both: same `clockTick` scheduler at next midnight, plus a `gg-focus-session-recorded` listener (dispatched by both `FocusTimer.handleComplete` and `PomodoroTimer.recordFocusSession`) so the strip refreshes the moment a session completes anywhere in the app instead of waiting for nav-away-and-back. Cross-tab writes covered by the native `storage` event listener. Closes part of prior shift #55 backlog #4.
+  - fix: 3a56fac · https://github.com/landon-personal/gradeguardnewsync/commit/3a56fac
+
+### Fixed (web) — `Friends` `sendMessage` `Promise.race` timeout never cleared
+
+- **`src/pages/Friends.jsx`** — closes prior shift #56 backlog item #5. The inner `setTimeout(reject, 12000)` inside the race fired regardless of whether the actual API call already resolved, leaking the timer + an `UnhandledPromiseRejection` per send (the late rejection is a no-op for the consumer that's already received the success value, but the timer's closure still ticks and the discarded rejection still hits the unhandled-rejection log). Now captured the timer id at creation and `clearTimeout` in a `try/finally` around the race so both branches release the timer cleanly.
+  - fix: 2e8ccfa · https://github.com/landon-personal/gradeguardnewsync/commit/2e8ccfa
+
+---
+
 ## [Unreleased] — 2026-05-01 06:26 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
