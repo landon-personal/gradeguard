@@ -17,6 +17,27 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-01 16:16 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Per-subject reflection breakdown in `TestReflectionCard` 🎯
+
+- **`src/components/dashboard/TestReflectionCard.jsx`** + **`src/lib/testReflection.js`** — closes prior shift backlog (14:02 UTC #2, 12:29 UTC #2, 10:04 UTC #5, flagged 4 shifts running). Once a student has 2+ saved test reflections (across any subjects), the card grows a "By subject" section under the calibration insight strip. Each row shows the subject's color dot, a chronological emoji strip of the last 5 outcomes (oldest → newest left to right), and an avg-outcome chip (Bombed → Aced) tinted by the matching outcome tone. When a subject has 3+ reflections that ALSO had a pre-test confidence rating, the row picks up a per-subject calibration hint ("underrates self" / "overrates self") — same family as the existing aggregate insight, but actionable on a subject-by-subject basis (a student might be well-calibrated for English but consistently overrate Math).
+- **New helper `subjectReflectionBreakdown(tests, reflectionMap, getConfidence)`** in `testReflection.js` — pure derivation, no I/O, takes the loaded maps + a confidence accessor so the React layer stays in charge of when to recompute. Sorted: most-reflected subjects first, alpha for ties so order is stable across re-renders.
+- **Why a student notices it:** different signal from `GradeTrends`, which shows numeric trends (a 95% or a 70%). This captures qualitative *experience* (felt 'aced' vs. 'bombed'). A student can ace a 70%-by-curve and feel they aced it, or get 95% by luck and feel they barely passed. Outcome rating tells that story; raw score doesn't. First time the dashboard has any subject-level outcome surface at all.
+  - feat: 323e611 · https://github.com/landon-personal/gradeguardnewsync/commit/323e611
+
+### Fixed (web) — Three more midnight-rollover surfaces
+
+Same pattern shipped across ~15 dashboard components in prior shifts: a date is captured at top of render but the surface never re-renders on its own at the wall-clock boundary. Each one applies the same self-rescheduling `clockTick` + `setTimeout` to next local midnight pattern.
+
+- **`src/pages/Achievements.jsx`** — closes prior shift backlog (14:02 UTC #7). Page-level streak (`calcStreak(assignments)`) ran at top of render and captured `startOfDay(new Date())` internally; a student who left /Achievements open across midnight saw yesterday's streak number until assignments refetched. The hero stats (Day Streak / Total XP / etc.) are visually loud — vanity surfaces are the obvious failure mode for not refreshing. fix: 9b84816 · https://github.com/landon-personal/gradeguardnewsync/commit/9b84816
+- **`src/pages/Tests.jsx`** — `today` was captured at top of render but the page never re-rendered on its own. A student whose test had `test_date = today` saw it stay in `upcomingTests` instead of flipping into `pastTests` at midnight. fix: 04f2dda · https://github.com/landon-personal/gradeguardnewsync/commit/04f2dda
+- **`src/pages/Assignments.jsx`** — `dueTodayCount` and `overdueCount` (rendered as the "Due today · N" filter chip + matching search filter) captured `todayStr` at top of render. A student leaving /Assignments open across midnight saw yesterday's "Due today" pill until something else triggered a re-render. fix: 3c031d6 · https://github.com/landon-personal/gradeguardnewsync/commit/3c031d6
+
+---
+
 ## [Unreleased] — 2026-05-01 14:02 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
