@@ -17,6 +17,34 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-01 02:08 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — 30-day per-subject focus heatmap on Dashboard 📅
+
+- **`src/components/dashboard/SubjectFocusHeatmap.jsx`** (new, ~250 lines) — until now, per-subject focus visibility on the dashboard was a 7-day sparkline + total inside `SubjectEffortIndex`. A student couldn't easily spot "I always study Bio on Sundays" or "I haven't touched Spanish in 2 weeks" — those patterns need a wider window AND a 2D layout. The new heatmap reads 30 days of `gg_focus_sessions_<date>` (work-mode only, same fallback shape as `SubjectEffortIndex` / `FocusSessionHistoryModal`), resolves each session's subject via assignments + `Study: <test>` wrappers → tests, and renders a grid: rows = subjects (sorted by 30-day total minutes desc), columns = 30 days (oldest left → today right). Cells are colored with the subject's stable palette color (`subjectColor`) so the heatmap matches every other per-subject surface in the app. Intensity scales through 5 alpha bands keyed to Pomodoro cadence: <10 min, 10–24, 25–49, 50–89, 90+ min. DOW letters (S M T W T F S) above each column; first-of-month columns show the month abbreviation instead so a student can locate "two weeks ago" at a glance. Today's column gets an indigo border ring. Hover/focus on a cell surfaces a single bottom-row callout with subject + date + minutes (single row keeps layout from jumping vs. floating tooltips on each cell). Cells are real `<button>` elements so the heatmap is keyboard-focusable. Untagged minutes (sessions without an assignment context) are not shown as a row but are surfaced in the header's total summary so the student knows how much time isn't bucketed.
+- **`src/pages/Dashboard.jsx`** — plumbed between `SubjectEffortIndex` and `TestReadinessPanel` (`fadeUp(0.343)`) so the subject-focus stack reads top-to-bottom: weekly strip → 7-day effort vs. grade → 30-day heatmap → test readiness. Auto-hides empty (`totalMinutes === 0`) so brand-new accounts don't see a zeroed grid.
+- **Why a student notices it:** a brand-new visualization. Two weeks of "I've been studying Math every other day" or "I haven't logged a session for AP Bio since the 12th" suddenly become obvious from the shape of the grid. Subject-color matching across every dashboard surface is the existing North Star and this heatmap fits straight into it.
+  - feat: 812b61d · https://github.com/landon-personal/gradeguardnewsync/commit/812b61d
+
+### Added (web) — `SubjectManagerModal` search filter for power-user lists 🔎
+
+- **`src/components/dashboard/SubjectManagerModal.jsx`** — closes prior shift's "what I didn't get to" #6 (modal scrolled fine but no search/filter for a student with 12+ subjects). The input auto-shows once the subject list reaches 8 entries (sweet spot from the prior note) so a 4-subject student doesn't see clutter. Substring match against the lowercase subject name; clear button inside the input. Empty-result state ("No classes match \"X\".") replaces the row list when the filter zeroes out so the student doesn't think the modal silently dropped their classes. Search resets to empty whenever the modal reopens — same lifecycle as the customSubjects state — so a stale filter from a prior open doesn't hide rows the student is now expecting to see.
+  - feat: 6d630f5 · https://github.com/landon-personal/gradeguardnewsync/commit/6d630f5
+
+### Fixed (web) — `FloatingStreakCounter` "at risk" UI was wired but never triggered 🔥
+
+- **`src/components/dashboard/FloatingStreakCounter.jsx`** — the component had a full at-risk visual treatment (red gradient + pulse keyframes + "Streak at risk!" tooltip + small `!` badge), but `isAtRisk` was hardcoded `false` so none of it could ever fire. Streaks would silently die at midnight without ever surfacing the "you still have time today" signal that's the whole point of having an at-risk state. Now `isAtRisk` derives from the same data the streak itself uses: streak ≥ 1, no completion today (re-derive from the assignments array `calcStreak` reads), AND it's at least 6pm local. The 6pm gate keeps the warning from nagging students all day; by evening, "you haven't done anything today" is actually actionable. No change to the visual treatment — keyframes / colors / tooltip copy were already in place, just gated behind a dead constant.
+  - fix: 65693cc · https://github.com/landon-personal/gradeguardnewsync/commit/65693cc
+
+### Fixed (web) — `SmartTodoList` feedback bucket goes stale at midnight
+
+- **`src/components/dashboard/SmartTodoList.jsx`** — closes prior shift's "what I didn't get to" #9. The component built `todayKey` from `new Date()` on every render but read it only once in the useState lazy initializer. A student who leaves /Dashboard open overnight crosses midnight with the feedback state still set to yesterday's bucket (`confirmed: true`) — so today's prompt never re-appears, and any write goes to today's NEW key while the visible UI shows yesterday's confirmation copy ("Got it — I'll push you harder next time!"). Edge case but real for tab-leavers. Add a useEffect that compares the current todayKey to the last-loaded one (tracked in a ref so unrelated re-renders inside the same day don't refire). When they diverge — i.e. the date has rolled — re-read localStorage with the fresh key and reset feedback / confirmed to match. The ref pattern keeps the effect from looping on the self-induced setState calls.
+  - fix: 6076d45 · https://github.com/landon-personal/gradeguardnewsync/commit/6076d45
+
+---
+
 ## [Unreleased] — 2026-05-01 00:11 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
