@@ -17,6 +17,32 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-01 10:04 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Test reflection card + personal-calibration insight on Dashboard 🎯
+
+- **`src/lib/testReflection.js`** (new) + **`src/components/dashboard/TestReflectionCard.jsx`** (new, ~270 lines) — closes the prediction loop on the existing `TestReadinessPanel` confidence ratings. After a `test_date` passes, the dashboard surfaces a "How did *[test name]* go?" card. The student picks one of five outcomes (💀 Bombed → 🎉 Aced) and optionally fills in a grade %. Stored at `gg_test_reflection_<testId>` (pure localStorage, same defensive read/write posture as `testConfidence` / focus sessions). The reflection scale (1=Bombed → 5=Aced) is intentionally aligned 1:1 with `CONFIDENCE_LEVELS` (1=Lost → 5=Ready) so a direct `(actual − predicted)` subtraction is meaningful — that's the substrate for the calibration insight below.
+- **Calibration insight strip** — once 3+ samples land where both a pre-test confidence rating *and* a post-test reflection exist, the card surfaces a single sentence describing the student's bias: under ±0.5 step is "your pre-test ratings track reality closely — trust your gut" (emerald), positive = "you tend to underrate yourself by ~N steps — when you feel Shaky you usually do better" (indigo), negative = "you tend to overrate yourself — start prep one day earlier next time" (rose). 3-sample threshold avoids a single-instance noise narrative; the message is metacognitive coaching, not a number on a scoreboard.
+- **`src/pages/Dashboard.jsx`** — wired between `TestStudyPlan` and `ProgressCharts` (`fadeUp(0.349)`). Receives full `tests` (NOT `activeTests`, which filters out past-dated rows — those are exactly the rows we surface). Card auto-hides when there's no pending prompt AND no insight yet, so brand-new accounts see nothing.
+- **Surface controls so it doesn't get annoying** — pending prompts cap at 3 at a time (a student returning from a long break isn't faced with a wall), and each row has a compact "X" dismiss button that drops the prompt for the session (still re-promptable on next mount). 14-day reflection window matches `WorkloadForecast` so a student doesn't get nagged about a test from a month ago they've forgotten.
+- **Why a student notices it:** the dashboard had been growing on the *prediction* side (`TestReadinessPanel`, `TestStudyPlan`, `NextTestCountdown`) but had nothing on the *reality-check* side. A student rates themselves "Solid" → studies → takes the test → reality is "Aced" or "Bombed" — but the app never asked. Now it does, and after a few tests it tells them whether their gut is calibrated. First time GradeGuard learns from outcomes.
+  - feat: dc001bb · https://github.com/landon-personal/gradeguardnewsync/commit/dc001bb
+
+### Fixed (web) — `SubjectFocusHeatmap` / `SubjectEffortIndex` / `ProgressCharts` / `TestReadinessPanel` midnight rollover
+
+- **`src/components/dashboard/SubjectFocusHeatmap.jsx`** — `useMemo([assignments, tests])` captured `today = new Date()` on first mount, so two things went stale: (1) a student who left the dashboard open past midnight saw `days[]` (the X-axis) frozen at yesterday's 30-day window — a session logged on the new day landed outside the displayed range entirely; and (2) today's column lagged until the dashboard re-fetched assignments/tests, since that was the only `useMemo` trigger. `GradeTrends` and `TestStudyPlan` already update live on `gg-focus-session-recorded`; this card stayed frozen. Added a self-rescheduling `clockTick` `setTimeout` at next local midnight + the same `gg-focus-session-recorded` CustomEvent listener (plus the native `storage` event for `gg_focus_sessions_*` keys) so today's cell intensity bumps the moment a session lands.
+  - fix: e320ddc · https://github.com/landon-personal/gradeguardnewsync/commit/e320ddc
+- **`src/components/dashboard/SubjectEffortIndex.jsx`** — same exact pair of bugs as the heatmap above (rolling 7-day window + no live refresh on session writes). Same self-rescheduling `clockTick` + `gg-focus-session-recorded` + native `storage` listener pair so the band/strip and `weekMinutesBySubject` re-derive the moment a Pomodoro lands.
+  - fix: b26380e · https://github.com/landon-personal/gradeguardnewsync/commit/b26380e
+- **`src/components/dashboard/ProgressCharts.jsx`** — `useMemo([assignments])` computed `subDays(new Date(), 6-i)` once at first mount, so the 7-day completion-bar X-axis stayed frozen at yesterday's window across midnight. A completion logged on the new day landed under yesterday's day-of-week label (e.g. counted as "Thu" when it was actually Friday) and today's column showed yesterday's count. Same `clockTick` scheduler.
+  - fix: 72ecdb2 · https://github.com/landon-personal/gradeguardnewsync/commit/72ecdb2
+- **`src/components/dashboard/TestReadinessPanel.jsx`** — `useMemo([tests])` captured `today` on first mount, so a student who left the dashboard open across midnight saw "TMRW" badges stay frozen at "TMRW" instead of flipping to "TODAY", and "TODAY" rows didn't disappear when the `test_date` became yesterday. Same `clockTick` pattern. Now the "next 14 days" filter and per-row day count both follow the wall clock without waiting for `tests` to refetch.
+  - fix: d6ebb07 · https://github.com/landon-personal/gradeguardnewsync/commit/d6ebb07
+
+---
+
 ## [Unreleased] — 2026-05-01 08:13 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
