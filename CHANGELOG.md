@@ -17,6 +17,36 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-01 00:11 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Focus session log: chronological view of the past 14 days with per-row delete + Undo 📜
+
+- **`src/components/dashboard/FocusSessionHistoryModal.jsx`** (new, ~290 lines) — there was no chronological surface for the student's focus sessions. Aggregate views existed (today's-strip dot count, 12-week heatmap, weekly recap, per-subject minutes) but a student couldn't say "wait, that 25-min session yesterday was while I was making coffee, let me delete it" or "did I really do 4 sessions on Tuesday or am I misremembering?" The new modal walks `gg_focus_sessions_<date>` for the past 14 days, flattens to `{date, idx, mode, minutes, assignment, completedAt}`, sorts newest-first, and groups by date with `Today` / `Yesterday` / relative weekday labels. Each row shows: mode badge (Focus / Short break / Long break with matching icon), subject color dot + name (resolved from assignments + tests so the row matches the color the rest of the app shows for that subject; `Study: <test>` wrappers unwrap to the test's subject), time-of-day, duration, and a Trash icon (visible on row hover). Filter chips at the top: "Focus only" (default) / "Include breaks". Header summary: total session count + total focus minutes across the 14-day window.
+- **Per-row delete with idx-targeted rewrite + Undo:** delete rewrites that day's bucket without the deleted row. `idx` is the row's original position within that day's array (passed through from the loader) so duplicate `completedAt` millisecond timestamps don't ambiguate the delete target. The 5s sonner toast surfaces an Undo action that restores the row at the same index — best-effort: if other rows have been deleted in the meantime, the row is appended at the end so data isn't lost.
+- **`src/pages/FocusTimer.jsx`** — wired via a small `<History />` "View log" button in the "Today's sessions" header (the natural surface — the student is already looking at session counts there). The modal's `onChanged` callback fires `setSessionsToday(loadTodaySessions())` which gives a fresh array reference, which re-derives `focusHistory` (memo dep), which re-aggregates the weekly goal bar, the per-subject SubjectGoalsStrip, and the today's-dots strip — so the deletion's effect is visible everywhere on the page immediately.
+- **Why a student notices it:** flagged in the broad "feature playbook" examples (chronological log of activity). First time GradeGuard surfaces the raw session list — every other view aggregates. Students who accidentally let a Pomodoro run while distracted now have a way to clean up their stats; students who forget what they did this week have a chronological audit trail.
+  - feat: dec48ef · https://github.com/landon-personal/gradeguardnewsync/commit/dec48ef
+
+### Polish (web) — `SubjectGoalsStrip` capitalize-first display fallback
+
+- **`src/components/dashboard/SubjectGoalsStrip.jsx`** — closes prior shift's "what I didn't get to" #5. A goal set under "math" with NO current Math assignments / tests / focus sessions resolved to display="math" (lowercase) because the `displayBy` map only learns casings from byWeek + assignments + tests. Fresh-start students typing in their plan before adding any work would see lowercase rows. Now the fallback capitalizes the first letter so "math" displays as "Math" — matching how the rest of the app cases subjects on entry.
+- **`src/components/dashboard/TestReadinessPanel.jsx`** — drop the stale "PomodoroWidget" reference from the mountedRef-pattern comment. (PomodoroWidget.jsx is dead code, has been flagged for boss-eyeball deletion 8 shifts in a row — the live floating widget is `PomodoroTimer.jsx`. Comment cleanup only; no behavior change.)
+  - polish: d5a6636 · https://github.com/landon-personal/gradeguardnewsync/commit/d5a6636
+
+### Fixed (web) — 🚨 `MiniGames.MemoryMatch` was unwinnable (pair-match check compared group-id vs array index)
+
+- **`src/components/assistant/MiniGames.jsx`** — the Memory Match mini-game's pair-match check after the player flipped two cards was `pairs[first].pair === idx` — comparing the first card's pair-group-id (an even number 0,2,4… assigned at shuffle-build time, shared across both halves of a pair) against the array index of the second clicked card. Only matched by coincidence when the shuffle happened to land a card with pair-id N at array index N. Effectively the game never registered a successful match. Fix: compare both cards' pair-ids (`pairs[first].pair === pairs[idx].pair`). Both halves of a pair share the same group id by construction, so this is the correct equality.
+  - fix: 21d6657 · https://github.com/landon-personal/gradeguardnewsync/commit/21d6657
+
+### Fixed (web) — `AIAssignmentChat` success-path `setMessages` was missing the `mountedRef` guard
+
+- **`src/components/assignments/AIAssignmentChat.jsx`** — the catch block already guarded `setMessages` with `if (!mountedRef.current) return` and the `setLoading(false)` finally was guarded too, but the success path's three `setMessages` calls (JSON-parse-error fallback message, `ASSIGNMENTS_READY`-marker `displayReply`, no-marker reply) were unguarded. The multi-second `InvokeLLM` await is exactly the window in which the parent modal can close (Esc / click-outside / "Cancel"). Each unguarded call would fire setState on an unmounted component when that happens. Three call sites guarded.
+  - fix: f053dd7 · https://github.com/landon-personal/gradeguardnewsync/commit/f053dd7
+
+---
+
 ## [Unreleased] — 2026-04-30 22:15 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
