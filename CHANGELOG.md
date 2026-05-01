@@ -17,6 +17,44 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-01 06:26 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Today's test prep plan card on Dashboard 🎯
+
+- **`src/components/dashboard/TestStudyPlan.jsx`** (new, ~270 lines) — for the soonest 3 upcoming tests in the next 14 days, the dashboard now shows an auto-generated daily study-minute target per test plus today's progress. No setup required: target minutes derive from a calibrated curve scaled by the existing per-test confidence rating. **Curve:** 15 min/day at 8–14 days out → 25 min at 4–7 days → 45 min at 2–3 days → 60 min the day before. **Confidence multiplier:** 1.6× for *Lost*, 1.3× *Shaky*, 1.0× *Okay* / unrated, 0.7× *Solid*, 0.4× *Ready*. Round to nearest 5 minutes. Target hits zero on test day itself so the card doesn't prescribe last-day cramming. Today's progress walks `gg_focus_sessions_<today>` for sessions tagged `Study: <test name>` — the exact wrapper `FocusTimer.handleComplete` already writes when a student picks a test — so a student who clicks the in-row "Start" deep-link, completes one Pomodoro, and returns sees the bar move with no bookkeeping. Per-test row shows: subject color dot, test name, "in N days", today's `done / target`, progress bar in subject color, and a `Start →` link to `/FocusTimer?testId=<id>`. Header shows aggregate `total done / total target` plus a `Done ✓` badge when every row hit its target. Auto-hides when no test in 14d has a >0 target (test day itself, or rated 5/5 with >7d left).
+- **`src/pages/Dashboard.jsx`** — wired between `TestReadinessPanel` and `ProgressCharts` (`fadeUp(0.347)`). Shares `activeTests` so no extra fetch.
+- **Live refresh on session writes** — both writers (`PomodoroTimer.recordFocusSession` for the floating widget, `FocusTimer.handleComplete` for the dedicated page) now dispatch a `gg-focus-session-recorded` CustomEvent. `TestStudyPlan` listens (plus the native `storage` event for cross-tab writes) and bumps a `refreshTick`, so today's progress bar updates the moment a Pomodoro completes — no remount needed. Prior behavior would have lagged until navigation.
+- **Live refresh on confidence changes** — `recordConfidence` (in `src/lib/testConfidence.js`) now dispatches `gg-test-confidence-changed`. `TestStudyPlan` listens and re-runs the per-test confidence read, so a student rating a test "Lost" inline from `TestReadinessPanel` or `NextTestCountdown` immediately sees the daily target jump 1.6× without waiting for a remount.
+- **Why a student notices it:** the dashboard had a `NextTestCountdown` ("you have a test in 5 days") and a `TestReadinessPanel` ("rate how prepared you feel") but no surface that answered the actual question — *what should I do today?* This card closes the loop with an opinionated answer: here's how many minutes, here's how close you are, click here to start. First time GradeGuard prescribes a daily test-prep number at all.
+  - feat: 197a8f2 · https://github.com/landon-personal/gradeguardnewsync/commit/197a8f2
+  - feat: 596f65b · https://github.com/landon-personal/gradeguardnewsync/commit/596f65b
+  - feat: cc16b20 · https://github.com/landon-personal/gradeguardnewsync/commit/cc16b20
+
+### Added (web) — `1` / `2` / `3` / `R` keyboard shortcuts on `/FocusTimer`
+
+- **`src/pages/FocusTimer.jsx`** — the page already bound `Space` to start/pause but the mode tabs and reset button were mouse-only. Add `1` = Focus, `2` = Short break, `3` = Long break, `R` = Reset to the existing `keydown` listener — same `e.target === document.body` gate so typing in the intention input or length editor doesn't fire the shortcuts, plus a `metaKey/ctrlKey/altKey` skip so browser jump-to-tab and OS shortcuts keep working. The bindings flow through refs so the listener can register once with `[]` deps and still call into the live `switchMode` / `handleReset` closures (mirror of the `Tests.jsx` `N`-binding pattern).
+- **`src/components/common/KeyboardShortcutsModal.jsx`** — list the new bindings under a renamed "Focus Timer page" section. The prior section title ("when floating Pomodoro open") was incorrect — `Space` worked on the dedicated page too.
+  - feat: c40309f · https://github.com/landon-personal/gradeguardnewsync/commit/c40309f
+
+### Fixed (web) — `DailyGoalsCard` 7-day strip + today's checkmark went stale at midnight
+
+- **`src/components/dashboard/DailyGoalsCard.jsx`** — `useMemo([])` captured `today` on first mount. A student who left the dashboard open overnight crossed midnight with `todayKey` still pointing at yesterday's history bucket — toggling a goal would write to yesterday's entry and the 7-day visualization would render with stale day labels. Same midnight-staleness pattern that was patched on `SmartTodoList` and `FloatingStreakCounter` recently. Add the same self-rescheduling `clockTick` `setTimeout` that fires at the next local midnight, and key both `last7` and `todayKey` to it so they recompute exactly once at the boundary without a polling `setInterval`.
+  - fix: 1898880 · https://github.com/landon-personal/gradeguardnewsync/commit/1898880
+
+### Fixed (web) — `MoodCheckIn` picker stayed locked on yesterday's choice past midnight
+
+- **`src/components/dashboard/MoodCheckIn.jsx`** — same midnight-staleness pattern. The component read the saved-mood blob in a `useEffect` keyed only on `userEmail`, so a student who picked a mood at 11 PM and left the dashboard open crossed midnight with `selected/confirmed` state pinned to yesterday's choice — the picker was greyed out with yesterday's emoji highlighted while today's actual mood went unrecorded. Add the `clockTick` scheduler at the next local midnight and re-run the saved-mood read against the new `toDateString()`. Also explicitly clear local state on the no-match branch and on a missing saved blob so fresh days reset cleanly.
+  - fix: add2150 · https://github.com/landon-personal/gradeguardnewsync/commit/add2150
+
+### Fixed (web) — `DailyCheckout` visibility gate + day keys went stale at 4 PM and midnight
+
+- **`src/components/dashboard/DailyCheckout.jsx`** — `useMemo([])` captured `today` on first mount, breaking three things at once: (1) `todayKey`/`yesterdayKey` kept yesterday's date past midnight so the saved-checkout read missed today's actual key, (2) `isEvening` / `isMorning` gated on a stale `getHours()` so the card never appeared when 4 PM rolled around with the dashboard already open and stayed in "evening" mode well into the next morning, and (3) the assignments-completed-today filter compared `updated.toDateString() === today.toDateString()` against yesterday's date so completions on the new day didn't count. Add the same `clockTick` scheduler the streak counter uses, scheduled at the next 4 PM or midnight boundary (whichever comes first), and key `today` to it. The existing `useMemo` chain re-derives both date keys on the next tick.
+  - fix: 13df9e2 · https://github.com/landon-personal/gradeguardnewsync/commit/13df9e2
+
+---
+
 ## [Unreleased] — 2026-05-01 04:05 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
