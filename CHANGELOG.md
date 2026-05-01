@@ -17,6 +17,44 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-01 12:29 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Inline test reflection on past Test rows in `/Tests` 🎯
+
+- **`src/components/tests/TestCardReflection.jsx`** (new, ~210 lines) + **`src/components/tests/TestCard.jsx`** — surfaces the saved post-test reflection (outcome chip + optional grade %, e.g. `🎉 Aced · 92%`) directly on past-test rows on `/Tests`, plus a compact "Reflect on this test" CTA on past rows that don't have one yet. Tapping the CTA expands an inline 5-button picker (Bombed → Aced) + grade % input — same lib + storage shape (`gg_test_reflection_<testId>`) as the dashboard `TestReflectionCard` so a reflection saved on either surface immediately propagates to the other via `gg-test-reflection-changed` (same-tab) + native `storage` event (cross-tab). Pencil icon on the saved chip re-opens the picker so a misclick is recoverable. **Why a student notices it:** the Tests page is where students go to *revisit* a test conceptually (review topics, look at past performance) — it's the natural reflection touchpoint, not just the dashboard prompt window. Students who missed the dashboard's 14-day pending-prompt window can still log a reflection any time. Closes prior shift backlog (10:04 UTC #2 — surface reflection trend on the Test row in `/Tests`).
+  - feat: e4066f3 · https://github.com/landon-personal/gradeguardnewsync/commit/e4066f3
+
+### Added (web) — Today's study-plan target + progress strip inside `NextTestCountdown` 🎯
+
+- **`src/components/dashboard/NextTestCountdown.jsx`** + **`src/lib/testStudyPlan.js`** + **`src/components/dashboard/TestStudyPlan.jsx`** — adds a compact "Today's plan" strip inside the countdown banner showing today's prescribed study minutes (e.g. `40 / 60 min`) for the soonest test, with a progress bar that fills as `Study: <test name>` Pomodoros land. Extracted `dailyTargetFor` / `baseMinutesForDays` / `confidenceMultiplier` from `TestStudyPlan.jsx` into `lib/testStudyPlan.js` as the single source of truth so the two surfaces never disagree if the curve is tuned later. Live-refreshes on focus session writes (cross-tab via `storage`, same-tab via `gg-focus-session-recorded`), confidence rating changes (`gg-test-confidence-changed`), and per-test offset bumps (`gg-test-study-plan-offset-changed`). Bar turns emerald with a checkmark once today's target is hit. Hidden on test-day itself (no prescription on the day of) and when target rounds to 0 (e.g. confidence-5 student with a heavy negative offset). **Why a student notices it:** the countdown banner is the dashboard's most-glanced surface — putting today's number there means the prescription answers the natural follow-up question ("…ok, so what should I actually do today?") inline. Closes prior shift backlog (8:13 UTC #3 — TestStudyPlan inside NextTestCountdown).
+  - feat: 88d3e9d · https://github.com/landon-personal/gradeguardnewsync/commit/88d3e9d
+
+### Added (web) — Distraction tap-counter on the floating PomodoroTimer widget 🔔
+
+- **`src/components/dashboard/PomodoroTimer.jsx`** — plumbs the in-session distraction tap-counter (already on the FocusTimer page) into the floating widget so a Pomodoro started from the floating control captures the same quality dimension. Pill is visible only mid-work-session, taps increment a state counter, the value is stamped onto the `gg_focus_sessions_<date>` row at `advance(true)` only when nonzero (same convention as the page version — missing field stays distinct from explicit 0). Counter resets on `advance` / `handleReset` / `handleModeSwitch` so a fresh work block always starts at 0. `recordFocusSession` now accepts a `distractions` arg; `FocusSessionHistoryModal` already reads the field for both writers, so the existing per-row distraction pill + 14-day total in the modal header pick up the floating-widget rows automatically. Closes prior shift backlog (8:13 UTC #2 — distraction tap-counter on floating PomodoroTimer).
+  - feat: beb71e2 · https://github.com/landon-personal/gradeguardnewsync/commit/beb71e2
+
+### Fixed (web) — `StudyHistoryInsights` 12-week heatmap midnight rollover
+
+- **`src/components/dashboard/StudyHistoryInsights.jsx`** — the 12-week activity grid (`buildHeatmap`), current `streak`, `bestDay`, and `subjectStats` (top subjects last 30 days) all derived from `new Date()` / `Date.now()` inside `useMemo`s that didn't track wall time — a student leaving the dashboard open across midnight saw yesterday's grid frozen until the next session landed. Same midnight-rollover pattern previously fixed on `FloatingStreakCounter`, `NextTestCountdown`, `WorkloadForecast`, `WeeklyFocusGoalMini`, `DailyGoalsCard`, `MoodCheckIn`, `DailyCheckout`, `ProgressCharts`, `TestReadinessPanel`, `SubjectFocusHeatmap`, `SubjectEffortIndex`. Added the standard `clockTick` state + self-rescheduling `setTimeout` to next-midnight, included in each affected memo's deps. Closes prior shift backlog (10:04 UTC #3).
+  - fix: 75bf83d · https://github.com/landon-personal/gradeguardnewsync/commit/75bf83d
+
+### Fixed (web) — `StudySessionTimer` re-init on `durationMinutes` prop change
+
+- **`src/components/dashboard/StudySessionTimer.jsx`** — closes prior shift backlog (02:08 UTC #4). Component lazy-init'd `timeLeft` from `durationMinutes` once at mount and never picked up later prop changes, so a parent re-render with a new `suggested_time_today` (AI plan refresh changes the recommended minutes for an open todo) silently kept the original countdown value. Added a `useEffect` that re-syncs `timeLeft` when `totalSeconds` changes, gated to `(!running && !done)` so a started session is never yanked and a finished badge isn't reset back into a fresh countdown.
+  - fix: 5edd2e4 · https://github.com/landon-personal/gradeguardnewsync/commit/5edd2e4
+
+### Hygiene (web) — `eslint no-undef` enabled + `MoodCheckIn` trailing-blank cleanup
+
+- **`eslint.config.js`** — turned on `no-undef`. Closes prior shift backlog (8:13 UTC #7, flagged 5 shifts running). A few shifts back a missing icon import for `Target` slipped through both lint and build because the rule wasn't on. `globals.browser` already covers window/document/localStorage/etc, and React 17+ JSX runtime means the component identifier doesn't need React in scope. Verified zero new errors across the codebase — only the pre-existing unused-vars warnings remain.
+  - chore: d5dbf66 · https://github.com/landon-personal/gradeguardnewsync/commit/d5dbf66
+- **`src/components/dashboard/MoodCheckIn.jsx`** — stripped 47 trailing blank lines (file dropped 160 → 113 lines, no behavior change). Flagged 3+ shifts running.
+  - chore: bundled into beb71e2 above.
+
+---
+
 ## [Unreleased] — 2026-05-01 10:04 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
