@@ -17,6 +17,28 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-01 18:26 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — `DeepWorkInsights` card on `/FocusTimer` 🎯
+
+- **`src/components/dashboard/DeepWorkInsights.jsx`** (new, ~210 lines) + **`src/pages/FocusTimer.jsx`** — closes the explicit setup line in the 08:13 UTC shift's distraction tap-counter feature ("Sets up future surfaces (e.g., 'you get distracted most around 8 PM' in TimeOfDayFocusPattern) once enough data lands"). The optional in-session distraction tap-counter (shipped 08:13 UTC) was a write-only feature — every other surface that read distractions was per-session (the today's-sessions header pill, the focus-history modal row badges). No surface aggregated *across* sessions to surface patterns. Now `DeepWorkInsights` lives on /FocusTimer right under `TimeOfDayFocusPattern`. Trailing 4-week window (tighter than `TimeOfDayFocusPattern`'s 12 weeks because behavior + environment shifts faster than focus rhythm). Auto-hides when the student has never engaged with the feature (zero distractions in the window) so a fresh-start student doesn't see clutter.
+- Surfaces:
+  - **Headline insight:** "You logged X distractions this week, compared to Y last week. They cluster around 7 PM on Wednesdays." Single sentence, scannable. Day suffix only fires when the peak day has ≥3 distractions in the window so a single noisy session doesn't pin a weekday.
+  - **Three stat cards:** total distractions across 4 weeks (amber), clean-session % (sessions with no logged distractions, emerald), and a vs-last-week trend chip (green when down, rose when up, gray "Steady" inside a ±2 deadband so a 1-2 distraction noise swing doesn't read as a trend).
+  - **Hour-of-day distraction strip:** 5 AM → 11 PM band, parallel to `TimeOfDayFocusPattern`'s focus-minute strip directly above. Bars are amber (distraction) instead of indigo (focus) so the two charts read as a contrasting pair — a student instantly sees that their peak focus hour and peak distraction hour overlap (or, more usefully, *don't*).
+- **Why a student notices it:** previously tracking distractions paid off only inside an individual session ("I tapped 5 times today, oof"). The accumulated value — "Wednesday evenings are a black hole, schedule something else then" — was hidden. First aggregate surface for the distraction dimension. Sets up a future "distraction streak" surface (consecutive days with zero logged distractions) once enough data lands.
+- `loadFocusHistory()` updated to pass `distractions` through into the 12-week history list (was previously dropped). Sessions without logged taps still store nothing — the missing field is intentionally distinct from a 0 — but for aggregation purposes the loader treats missing as 0.
+  - feat: f75ad05 · https://github.com/landon-personal/gradeguardnewsync/commit/f75ad05
+
+### Polish (web) — Per-day distraction count in `FocusSessionHistoryModal` group header
+
+- **`src/components/dashboard/FocusSessionHistoryModal.jsx`** — the day-grouped session log already showed per-row distraction badges + "X focus min" in the day header, but a rolled-up "this day had N distractions" was hidden until the student manually scanned each row. Adds a small amber bell pill next to the focus-min summary on any day where work sessions had any logged distractions, with a tooltip ("3 distractions logged on Wednesday"). Days with no distractions stay visually unchanged so days where the feature wasn't engaged with don't pick up new chrome.
+  - polish: 5db03e0 · https://github.com/landon-personal/gradeguardnewsync/commit/5db03e0
+
+---
+
 ## [Unreleased] — 2026-05-01 16:16 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
