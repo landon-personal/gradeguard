@@ -17,6 +17,48 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-02 08:06 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Per-test prep checklist in `NextTestCountdown` 📋
+
+- **`src/lib/testPrepChecklist.js`** (new) + **`src/components/tests/TestPrepChecklist.jsx`** (new) + **`src/components/dashboard/NextTestCountdown.jsx`** + **`src/pages/Tests.jsx`** — until this shift the dashboard's at-the-top countdown banner could tell a student "Bio test in 3 days" + display the daily-target progress bar, but had no surface to let them mentally check off the classic prep tasks ("did I review my notes? have I done practice problems? am I going to sleep early enough?"). The lower-on-page `TestStudyPlan` owns the per-day prescription, but it's date-keyed — there was no place to mark "I read my class notes once" in a way that survived reloads.
+- **What changed:** the banner now embeds a 5-item checklist below the existing `TestConfidenceRater` panel, visible only when `days >= 0 && days <= 7` (matches the active prep window — earlier than that the lower-on-page `TestStudyPlan` already owns the prescription, and a 5-item tick sheet two weeks out feels like premature pressure). Items: Reviewed all topics · Read class notes · Reviewed flashcards · Did practice problems · Got 8+ hrs sleep. Each tap toggles + persists to `localStorage` keyed by `gg_test_prep_check_<testId>`. Progress bar above the rows recolors from purple → emerald and the header swaps to "You're prepped!" when all 5 are checked.
+- **Storage shape:** `{ done: number[], ts: ISO string }`. Same defensive read/write posture as `testReflection` / `testConfidence` — Safari Private mode and sandboxed iframes throw on every storage call; those throws fall through to "no items checked" rather than crashing the banner. `gg-test-prep-check-changed` CustomEvent + cross-tab `storage` listener keeps the embedded UI in sync if the same student has the test open in /Tests in another tab.
+- **Cleanup on test delete:** `Tests.jsx`'s delete mutation now calls `clearPrepChecklist(id)` alongside the existing `clearConfidence` / `clearReflection` / `clearTestPlanOffset` / `clearDeckMastery` cleanup so deleted tests don't leak orphan storage entries.
+- **Why a student notices it:** the banner gains a tactile commitment dimension. A student looking at "Bio in 3 days" can now tap "Reviewed flashcards" once they're done, watch the progress bar climb to 60%, see the green pill at all-5-done. First in-banner surface for self-tracked prep — the existing `TestStudyPlan` and `TestConfidenceRater` are about the *what to do* and *how it feels*, this is the *did I do it*.
+  - feat: ea5bb53 · https://github.com/landon-personal/gradeguardnewsync/commit/ea5bb53
+
+### Improved (web) — `GradeGoalCalculator` discoverability nudge
+
+- **`src/components/assignments/GradeGoalCalculator.jsx`** — closes prior shift backlog item #1 (06:13 UTC — "Goal text in onboarding"). First-time users opening the calculator on `/Assignments` had no breadcrumb that the new goal-saving feature even existed; you had to find the per-row Save button to discover it. New indigo tip line at the bottom of the expanded panel reads "Save a target to pin it on your Dashboard with a live feasibility chip" with a Target icon, sitting above the existing privacy footer in gray.
+  - feat: f83a5a4 · https://github.com/landon-personal/gradeguardnewsync/commit/f83a5a4
+
+### Fixed (web) — `MiniGames` MemoryMatch + TermGuesser replace `window.location.reload()` with replay-key state
+
+- **`src/components/assistant/MiniGames.jsx`** — closes prior shift backlog item #7 (06:13 UTC — "Try Another / Play Again calls window.location.reload()"). Tapping "Play Again" on a finished MemoryMatch board or "Try Another" on a finished TermGuesser hard-reloaded the entire page — throwing away React Query cache, scroll position, the StudyAssistant route the student was on, and any intentional dashboard state in other tabs (the storage event still fires across tabs). Heavy hammer for a "play another round" interaction.
+- **Fix:** add a `replayKey` state to each game; the LLM-generation effect's deps switch from `[]` (mount-only) to `[replayKey]` so a Play Again bump re-fires the LLM call without re-firing on parent rerenders. A state-reset block at the top of the effect wipes board / term / guess state so the new round starts clean. The mount-vs-rerender contract from the prior shift's fix (`8db39d4`) is preserved: skipping `tests` from the deps still prevents a parent rerender (fresh array reference) from burning quota or resetting the in-progress game.
+  - fix: 7959c20 · https://github.com/landon-personal/gradeguardnewsync/commit/7959c20
+
+### Fixed (web) — `FocusTimer` captures `document.title` at session start, not at mount
+
+- **`src/pages/FocusTimer.jsx`** — exact same root cause as the FloatingPomodoro fix in `8174312` and the PomodoroWidget fix in `ba3e670`. `useRef(document.title)` ran during the FocusTimer render — synchronously, before Layout's title-effect for `/FocusTimer` had a chance to set "Focus Timer | GradeGuard". So a `/Dashboard → /FocusTimer` navigation captured "Dashboard | GradeGuard"; later when the student stopped the timer (or unmounted the page), the wrong title got restored.
+- **Fix:** capture in the title-update effect when `running` first flips on, with the same `originalTitleRef.current === null` gate. Cleared after restore so a back-to-back start re-captures cleanly. Unmount cleanup gates on a non-null ref so a plain navigation away (no session ever started) doesn't restore "".
+- **Refactor follow-up:** the first version of the fix put capture+restore in a cleanup that re-ran on every `secondsLeft` tick. Each tick caused two `document.title` writes (cleanup restored, effect re-set). Split into two effects: a per-tick write effect with `[running, secondsLeft, modeConfig.label]`, and a capture/restore effect with `[running]`. One write per tick on the happy path.
+  - fix: 234ee34 · https://github.com/landon-personal/gradeguardnewsync/commit/234ee34
+  - refactor: ff2e35a · https://github.com/landon-personal/gradeguardnewsync/commit/ff2e35a
+
+### Fixed (web) — `TestPrepChecklist` + `TestCardReflection` re-hydrate when `testId` prop changes
+
+- **`src/components/tests/TestPrepChecklist.jsx`** + **`src/components/tests/TestCardReflection.jsx`** — both components used `useState(() => loadX(testId))` for their initial state, but the lazy initializer only runs on mount. When a parent reuses the same component instance with a different `testId` prop, the prior test's state visually carries over until the next save/storage event nudges it.
+- **Concrete repro paths:** `TestCardReflection` is embedded in `NextTestCountdown`'s reflect-mode banner, which picks the most-recent unreflected past test; once reflected, the banner re-picks the next unreflected test, the same component sees a new testId. `TestPrepChecklist` is embedded in `NextTestCountdown`'s upcoming-mode banner — when the soonest test passes and the next one becomes the active target, same problem.
+- **Fix:** add a `[testId]` effect that calls `setX(loadX(testId))` on prop change. For `TestCardReflection` also resets editing/draft state so a half-typed grade % doesn't leak from one test to the next. Same shape `TestConfidenceRater` already uses for its own load-on-testId-change effect.
+  - fix: 6a54cae · https://github.com/landon-personal/gradeguardnewsync/commit/6a54cae
+  - fix: 105c2bf · https://github.com/landon-personal/gradeguardnewsync/commit/105c2bf
+
+---
+
 ## [Unreleased] — 2026-05-02 06:13 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
