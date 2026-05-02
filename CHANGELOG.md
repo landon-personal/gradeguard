@@ -17,6 +17,45 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-02 04:06 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Persisted subject grade goals + glanceable Dashboard strip 🎯
+
+- **`src/lib/subjectGradeGoals.js`** (new) + **`src/components/assignments/GradeGoalCalculator.jsx`** + **`src/components/dashboard/SubjectGradeGoalsStrip.jsx`** (new) + **`src/pages/Dashboard.jsx`** — until this shift, the GradeGoalCalculator on `/Assignments` stored target letter and remaining-assignment count in React state only. Every parent rerender (or page reload) reset both back to the auto-derived next-letter-up + pending-count defaults — so a student couldn't actually "set" a goal across sessions, and there was no glanceable surface anywhere else in the app to track those goals as new grades landed.
+- **What changed:** the calculator now persists each row's (target, remaining) pair to `localStorage` keyed by `(user_email, subject)` under `gg_subject_goal_<email>__<subject>`. Each row restores the saved picks on mount, shows a "Saved" pill + "Update goal" / "Clear" controls, and dispatches `gg-subject-goal-changed` so a new dashboard strip refreshes without remount. Same defensive read/write posture as `testReflection` / `testConfidence` — Safari Private mode and sandboxed iframes fall through to "no goal" rather than crashing the calculator.
+- **New `SubjectGradeGoalsStrip` on the Dashboard** (between `SubjectGoalsStrip` and `WorkloadForecast`, wired with a `gg-subject-goal-changed` + cross-tab `storage` listener) auto-hides until at least one goal is saved. Each row shows: subject color dot, name, current letter / pct, target letter, and a feasibility chip (`Locked in` / `On track` / `Stretch` / `Out of reach`) computed live from the same `requiredAverage` + `feasibility` helpers the calculator uses. Tap "Edit" → `/Assignments` to manage goals. Sort order: most-attention-needed first (out of reach → stretch → unknown → on track → locked in), alpha within tier so order is stable across renders.
+- **Why a student notices it:** before this shift, the GradeGoalCalculator was a one-shot calculation panel — open, tweak target, see required average, close, forget. There was no commitment dimension. Now a student picks "I want an A in Math by end of term" once, hits Save, and that goal follows them around the app: it's pinned on the Dashboard's main scroll surface with a live feasibility badge that updates every time a new assignment grade lands. The same calculator on `/Assignments` shows the saved pill so they know they've committed to it.
+  - feat: 95ab57b · https://github.com/landon-personal/gradeguardnewsync/commit/95ab57b
+
+### Fixed (web) — `FlashcardViewer.handleMark` clears pending step-timer before queuing auto-advance
+
+- **`src/components/assistant/FlashcardViewer.jsx`** — line 149 set `stepTimerRef.current = setTimeout(...)` without first clearing the prior timer. A fast double-mark on "mastered" (or marking "mastered" while `goTo`'s 50ms flip-reset timer was still queued) overwrote the ref's id without clearing the previous timer — leaking it until component unmount. Tiny leak; not user-visible. Closes the FlashcardViewer item from the prior shift's backlog (2026-05-02 02:08 UTC).
+  - fix: 072d270 · https://github.com/landon-personal/gradeguardnewsync/commit/072d270
+
+### Fixed (web) — `Tests.handleDeleteConfirm` ref-guards against fast double-tap on AlertDialog confirm
+
+- **`src/pages/Tests.jsx`** — a very fast double-click on the AlertDialog confirm button could fire `deleteMutation.mutate(deleteConfirm)` twice with the same id (the `useCallback` memo deps haven't re-evaluated yet between the two clicks, so `deleteConfirm` still holds the same id; `setDeleteConfirm(null)` is async). The second mutation hit a 404 silently. AlertDialog usually focus-traps — narrowing the window — but a `useRef` flag wired through the mutation's `onSettled` callback closes it cleanly without depending on focus behavior. Closes the Tests double-click race item from the prior shift's backlog.
+  - fix: b3f3b39 · https://github.com/landon-personal/gradeguardnewsync/commit/b3f3b39
+
+### Fixed (web) — `Assignments.handleDeleteConfirm` ref-guards against fast double-tap
+
+- **`src/pages/Assignments.jsx`** — exact same root cause as the Tests fix above. Confirm-dialog double-tap fires `deleteMutation.mutate` twice; second hits a 404 silently. Aligns Assignments with the same ref-guard shape Tests now uses (in-flight ref set on click, released via the mutation's `onSettled`).
+  - fix: 6b8a98a · https://github.com/landon-personal/gradeguardnewsync/commit/6b8a98a
+
+### Fixed (web) — `MiniGames` LightningRound / MemoryMatch / HiddenTerm lock LLM calls to mount-only
+
+- **`src/components/assistant/MiniGames.jsx`** — all three games had `useEffect` deps `[tests]` guarding their `InvokeLLM` call. Any parent rerender that handed in a fresh `tests` array reference (no upstream memoization in the modal that hosts the games) would re-fire the LLM call — burning quota AND resetting the in-progress game state (questions/score for LightningRound, shuffled pairs for MemoryMatch, the hidden term for HiddenTerm). Switch all three to `[]` (mount-only) with eslint-disable + a comment explaining the contract. The questions / pairs / term aren't going to update mid-game anyway, so this is the right contract. Closes the LightningRound regen item flagged 4+ shifts running, with the same fix applied to the other two games.
+  - fix: 8db39d4 · https://github.com/landon-personal/gradeguardnewsync/commit/8db39d4
+
+### Chore (web) — `TodaysFocusCard` strips 40 trailing blank lines
+
+- **`src/components/dashboard/TodaysFocusCard.jsx`** — cosmetic. The file just had a tall block of blank lines between the return statement and the closing function brace. No behavior change.
+  - chore: f3a57e0 · https://github.com/landon-personal/gradeguardnewsync/commit/f3a57e0
+
+---
+
 ## [Unreleased] — 2026-05-02 02:08 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
