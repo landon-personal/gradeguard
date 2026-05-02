@@ -17,6 +17,36 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-02 12:05 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Per-test prep checklist on `/Tests` row detail 📝
+
+- **`src/components/tests/TestCard.jsx`** — closes prior shift backlog (10:15 UTC #2). Until now the `TestPrepChecklist` only embedded inside the dashboard's `NextTestCountdown` banner — students who navigated to `/Tests` had to bounce back to `/Dashboard` to tick off prep items.
+- **What changed:** new `Checklist` toggle button alongside the existing `Prep plan` button on every upcoming test card. Button label includes a live `2/5` progress badge so the student gets glanceable progress without expanding. Color flips emerald when 5/5 lands.
+- **Same shared component, same per-test storage key (`gg_test_prep_check_<testId>`)** — toggling an item from the `/Tests` row immediately reflects on the `/Dashboard` countdown banner (and vice versa) via the existing same-tab `gg-test-prep-check-changed` event + cross-tab `storage` listener.
+- **Disclosure-only render keeps card height unchanged when collapsed**, addressing the prior shift's "TestCard is already vertically dense" note — the badge gives glanceable progress; the full checklist only renders on demand.
+- **Indigo palette** instead of an alarmist rose — a test 3 weeks out with 0/5 ticked shouldn't render mostly red. Matches the dashboard's neutral-progress palette while preserving the emerald flip when the checklist is fully done.
+  - feat: 35f98b9 · https://github.com/landon-personal/gradeguardnewsync/commit/35f98b9
+  - polish: 5439dff · https://github.com/landon-personal/gradeguardnewsync/commit/5439dff
+
+### Fixed (web) — `GradeGoalCalculator` cross-tab + same-tab `Saved` pill staleness
+
+- **`src/components/assignments/GradeGoalCalculator.jsx`** — closes prior shift backlog (10:15 UTC #4). The calculator dispatched `gg-subject-goal-changed` on save but didn't *listen* for the same event, so a student with the calculator open in tab A who saved a goal for the same subject in tab B's calculator (or via any other surface) saw a stale `Saved` pill and stale target slider until manual reload.
+- **Why:** mirror the listener pattern `SubjectGradeGoalsStrip` and `NextTestCountdown` already use — same-tab CustomEvent + cross-tab native `storage` event, both filtered to the row's (email, subject) pair.
+  - fix: d32c437 · https://github.com/landon-personal/gradeguardnewsync/commit/d32c437
+
+### Fixed (web) — Dashboard `handleCompleteFromTodo` actually reverts on save failure
+
+- **`src/pages/Dashboard.jsx`** — `handleCompleteFromTodo` captured 6 prior-state snapshots (`prevTodoList`, `prevAssignmentsCache`, `prevTestsCache`, `prevSignature`, `prevSessionPlan`, `prevSessionSig`) at the top of the handler, then never read any of them — the catch block only invalidated react-query and showed a toast.
+- **Why this matters:** a student who tapped Done on a SmartTodo item, hit the network mid-save (or had the server reject), saw "Couldn't save your progress" but the item *stayed removed from their AI plan locally* and from the sessionStorage cache. Only a hard reload + cache-miss would resurrect it.
+- **Same shape as the 04-14 ConfirmDialog regression** caught last shift: state captured for revert, revert never wired up. Fix wires up all 6 snapshots in the catch block, including session-storage restore (with `removeItem` when the prior value was null so we don't write the literal string `'null'`).
+- **Also drops dead `xpToast` / `pendingBadges` state** declared but never read in `Dashboard.jsx` (lint warnings since the gamification refactor — those are wired up correctly on `/Assignments`, just dead on `/Dashboard`).
+  - fix: 7f4f7c8 · https://github.com/landon-personal/gradeguardnewsync/commit/7f4f7c8
+
+---
+
 ## [Unreleased] — 2026-05-02 10:15 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
