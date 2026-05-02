@@ -17,6 +17,38 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-02 22:16 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Inline assignment time estimates + Estimated Workload card ⏳
+
+- **`src/components/assignments/AssignmentTimeEstimate.jsx`** (new) + **`src/components/assignments/AssignmentCard.jsx`** + **`src/components/dashboard/EstimatedWorkload.jsx`** (new) + **`src/pages/Dashboard.jsx`** — the Assignment entity has had a `time_estimate` field since launch, but the only way to set it was buried inside the `+ New Assignment` form, and the only place it was ever read was inside the AI study-plan prompt. From the student's perspective, time estimates were ghost data — invisible on the cards, invisible on the dashboard, no rollup, no nudges.
+- **What changed:**
+  - The read-only "~30 min" badge on `AssignmentCard` is now an editable inline pill. Tap it → an indigo popover row appears with one-tap presets (10 / 15 / 20 / 30 / 45 / 60 / 90 / 120), a custom-minutes number input, a "Clear" button when an estimate is already set, and an ✕ to close. Save fires `secureEntity("Assignment").update({ time_estimate })` and flows through the existing `handleAttachmentUpdate` optimistic React Query cache update on `/Assignments` so the dashboard rolls up the new value immediately, no refetch needed. Hidden on completed assignments.
+  - Empty state shows `+ Add estimate` as a thin underline trigger instead of nothing — students who have never used the field at all now have a tap-target on every card.
+  - The same `mountedRef` + try/catch/finally posture as `saveNote` and `AssignmentAttachment.handleFileChange` so a card that unmounts mid-save (filter change, status flip to completed, delete from another card) doesn't warn-on-unmounted.
+- **New `EstimatedWorkload` dashboard card:** sits between the existing `WorkloadForecast` (14-day load grid) and `DeadlineCalendar`. Shows three bands — **Today**, **Next 3 days**, **Next 7 days** — each with the total estimated hours/minutes from `time_estimate` across pending assignments due in that window, plus the item count and a fill bar normalized to the busiest band. When an assignment is due today *without* an estimate, an amber pill appears at the bottom: "N assignments due today have no estimate yet — Add →" linking to `/Assignments` so students can fill it in. Auto-hides if there are zero pending in the next 7 days; the missing-estimate pill is intentionally scoped to today-only because wider missing counts get noisy.
+- **Hours formatter:** `<60min` shows as `45 min`; 1–9.9 hrs shows one decimal (`2.5 hrs`); ≥10 hrs rounds to whole hours. Caps at 600 minutes per assignment to keep the storage shape sane.
+- **Why a student notices it:** time estimates stop being an invisible form field and become a one-tap pill on every card. The dashboard card turns "I have a vague pile of homework" into "I have ~2.5 hours of work due today, ~6 hours by Friday" — a real number students can budget against. The amber missing-estimate nudge closes the loop: setting the estimate is cheap, the dashboard demands it, and the AI study plan prompt already consumes the field, so even infrequent estimates make the auto-generated plan more accurate.
+  - feat: 8d7d7fe · https://github.com/landon-personal/gradeguardnewsync/commit/8d7d7fe
+
+### Fixed (web) — `Dashboard` AI plan crashed when an assignment or test had no date
+
+- **`src/pages/Dashboard.jsx`** — `generateAIPlan` mapped `pendingAssignments.map(a => a.due_date.split('-'))` and `activeTests.map(t => t.test_date.split('-'))` with no null guard. `pendingAssignments` filters by `status !== 'completed'` only, and `activeTests` intentionally keeps NaN-day rows (undated tests) so they still render on the dashboard — feeding either of those into the plan crashed the entire generation on `Cannot read properties of null (reading 'split')`. Filter both lists before the map: require a string that splits into three finite numbers. The AI can't prioritize an item with no date anyway, so dropping them from the prompt context is the right call.
+  - fix: 15cf560 · https://github.com/landon-personal/gradeguardnewsync/commit/15cf560
+
+### Fixed (web) — `new Notification(...)` could throw on iOS Safari and embedded WebViews
+
+- **`src/components/layout/FloatingPomodoro.jsx`** + **`src/components/dashboard/PomodoroWidget.jsx`** + **`src/components/notifications/useNotifications.jsx`** — three callsites instantiated `new Notification(...)` after only checking `Notification.permission === "granted"`. iOS Safari and some embedded WebViews expose the global and report `granted` (because the host app granted it) but throw a TypeError on the constructor itself. The throw was unguarded in all three places:
+  - **FloatingPomodoro:** thrown inside the `setSecondsLeft` updater inside `setInterval`, at the moment the timer hit 0 — the worst possible time for an unhandled exception.
+  - **PomodoroWidget.fireNotification:** same setInterval-updater path, and the throw also killed the `toast.success` fallback that should have shown even when the OS push didn't fire.
+  - **useNotifications.sendPush:** synchronous helper called from the per-tick reminder loop — one un-pushable item aborted the rest of that tick's reminders.
+  Wrapped all three in try/catch matching the `FocusTimer.maybeNotify` posture that already existed.
+  - fix: 548965e · https://github.com/landon-personal/gradeguardnewsync/commit/548965e
+
+---
+
 ## [Unreleased] — 2026-05-02 20:15 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
