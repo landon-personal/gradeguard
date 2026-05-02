@@ -17,6 +17,44 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-02 02:08 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Subject filter chips on the `/Achievements` test outcome timeline 🎯
+
+- **`src/components/gamification/TestOutcomeTimeline.jsx`** — the chronological reflection journal panel on `/Achievements` now slices by subject. Above the distribution bar, when 2+ subjects have logged reflections, a horizontally-scrolling chip row renders an "All" pill plus one chip per subject (subject color dot + name + count badge). Tap a chip and the header strip (`X tests logged · avg outcome · solid+ count`), the stacked outcome distribution bar, and the 12-row timeline all recompute against just that subject's reflections.
+- **Why a student notices it:** until now the timeline was a passive scrolling journal. The all-subjects view answers "how is the year going?" but a student who just bombed a History test wants to see "is this a streak or a one-off?" — and that requires filtering to History alone. With 8 reflections across 3 subjects, tapping Math collapses the panel to 5 Math entries, the distribution bar redraws to Math's spread, and the avg-outcome chip recomputes. The data was already loaded; it just wasn't slice-able. New for student exploration.
+- **Implementation notes:** the per-subject reflection set is computed once in a memo (`subjectCounts`) and the active-filter slice runs in a downstream memo, so a chip tap is a pure derived re-render — no re-walk of localStorage. The chip row hides itself with only one named subject (a single chip alongside "All" is just clutter). When the active subject's last reflection is deleted between renders, an effect drops the filter back to "All" so the panel can never get stuck on an empty slice. Header counter switches from `N tests reflected` → `N of M` while filtered so a student knows the slice is active. Empty-subject rows (test deleted server-side, reflection blob orphaned) are excluded from the chip row but still appear under "All" — same posture the panel already used for "Unknown test" rows.
+  - feat: 58c1d66 · https://github.com/landon-personal/gradeguardnewsync/commit/58c1d66
+
+### Fixed (web) — `FloatingPomodoro` snapshots `document.title` at start, not at mount
+
+- **`src/components/layout/FloatingPomodoro.jsx`** — the global floating widget snapshotted `document.title` at mount via `useRef(document.title)`. But `Layout.jsx:74` updates `document.title` on every route change, so the mount-time snapshot was the title of whatever page the user happened to land on FIRST when the FloatingPomodoro mounted. Every subsequent reset (or unmount) restored the title to that stale page name regardless of where the student actually was.
+- Concrete repro: student lands on /Dashboard (title becomes "Dashboard | GradeGuard", FloatingPomodoro mounts and captures it), navigates to /Tests (title becomes "Tests & Exams | GradeGuard"), opens the floating timer, starts a Focus, then hits Reset. Title goes back to "Dashboard | GradeGuard" — wrong page.
+- Fix: capture the title in `start()` right before the first override (`originalTitleRef.current === null` guard so a second start within the same session doesn't overwrite the original capture with our own pomodoro string), and clear the ref to `null` after restore so the next session starts fresh. New `restoreTitle()` helper centralizes the read-and-clear pattern.
+  - fix: 8174312 · https://github.com/landon-personal/gradeguardnewsync/commit/8174312
+
+### Fixed (web) — `Friends` sendMessageMutation onError handles undefined `error.message`
+
+- **`src/pages/Friends.jsx`** — the message-send mutation's onError read `error.message` directly with no optional chain and no fallback. A rejection from a non-Error throw (or an Error with no `.message`) toasted the literal string `undefined` to the student. Same hardening pattern shipped recently for `addFriendMutation` on this file (commit `29d5d5e`) — `sendMessageMutation` was missed.
+- Also stops painting the persistent "Message blocked: …" warning panel above the input for non-moderation errors. The blocked-warning panel now only renders when the server actually returned a moderation reason in `response.data.reason` or `response.data.error`. A generic network timeout reads as a transient toast only — no stuck red panel reading "Message blocked: Message took too long to send" when the server never blocked anything.
+  - fix: 003705e · https://github.com/landon-personal/gradeguardnewsync/commit/003705e
+
+### Fixed (web) — `PomodoroWidget` (Dashboard) snapshots title at first override, not at mount
+
+- **`src/components/dashboard/PomodoroWidget.jsx`** — same root cause as the FloatingPomodoro fix above. The Dashboard's collapsible Pomodoro widget captured `document.title` at mount, but PomodoroWidget remounts each time the user navigates to /Dashboard, and at that moment `document.title` still holds the previous page's title (the Layout title-effect for the new page hasn't run yet — useRef initial values run synchronously during render, useEffect fires after commit). On a /Tests → /Dashboard navigation, the widget captured `Tests & Exams | GradeGuard`; a later reset on Dashboard restored to that title.
+- Fix: capture in the title-update effect when `running` first flips on, with the same `originalTitleRef.current === null` gate as FloatingPomodoro. The else branch (running false, not active) clears the ref after restore so a back-to-back start re-captures the now-correct page title. Unmount cleanup also gates on the ref being non-null so it doesn't restore a never-captured title to "" on plain navigation away from /Dashboard.
+  - fix: ba3e670 · https://github.com/landon-personal/gradeguardnewsync/commit/ba3e670
+
+### Fixed (web) — `useNotifications` `inFlightRef` now released via try/finally
+
+- **`src/components/notifications/useNotifications.jsx`** — `checkAndNotify` set `inFlightRef.current = true` near the top to gate against duplicate fires during a refetch storm, and reset it to `false` at the very bottom. Anywhere in between (an unexpected throw in the assignments/tests filter chain, a malformed date going through `parseLocalDate` → `differenceInDays`, a synchronous throw from `secureEntity` itself before its own try/catch) propagated to the upstream `.catch(() => {})` in the useEffect and left the ref stuck at `true` for the rest of the session. Every later run hits the inFlight gate at the top and bails — silently disabling notifications.
+- Wraps the body in try/finally so the gate always releases regardless of where a throw happens. Same pattern other long-lived async handlers in this codebase use (Tests/Assignments mutations, the AI handlers in StudyAssistant, etc.). No behavioral change on the happy path.
+  - fix: 99de4bc · https://github.com/landon-personal/gradeguardnewsync/commit/99de4bc
+
+---
+
 ## [Unreleased] — 2026-05-02 00:17 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
