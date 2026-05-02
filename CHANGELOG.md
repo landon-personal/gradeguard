@@ -17,6 +17,40 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-02 14:05 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Student-added custom prep items per test ✨
+
+- **`src/lib/testPrepChecklist.js`** + **`src/components/tests/TestPrepChecklist.jsx`** + **`src/components/tests/TestCard.jsx`** — the 5 fixed checklist items (topics / notes / flashcards / practice / sleep) cover the common case but miss subject-specific prep. A vocab-heavy Spanish test wants "Review vocab list" but doesn't need "practice problems"; a chem test wants "Memorize polyatomic ions"; a history paper wants "Re-read primary source X." Until this shift the list was prescriptive, not personal.
+- **What changed:** new "Add your own" trigger at the bottom of every test's prep checklist opens an inline input row. Enter saves, Esc cancels, blur saves. Custom items render below the fixed 5 with a Sparkles icon (vs. fixed items' lucide icons) and an X button on hover to delete. Up to 8 custom items per test (caps card height + storage size); 60-char label limit. "Maxed out at 8 custom items" copy replaces the trigger when the cap lands.
+- **Storage shape additive + backward-compatible:** existing `gg_test_prep_check_<testId>` blobs without a `custom` field still load fine. New shape adds `custom: [{cid, label, ts}]` and lets `done` hold both fixed indices (0..PREP_TOTAL-1) and custom cids (CUSTOM_BASE = 1000+). `sanitizeDone` cross-references the loaded custom cids so an orphan id from a deleted custom item gets silently dropped on the next read; `removeCustomItem` also strips the cid from `done` proactively so the counter reflects the deletion immediately.
+- **`progressFor` returns dynamic total** = PREP_TOTAL + custom.length. `TestCard`'s "2/5" badge becomes "2/7" automatically once a student adds two items; the dashboard's `NextTestCountdown` banner picks up the same total because it embeds the same component with the same lib.
+- **Why a student notices it:** the canned 5 items aren't the right list for every class. A vocab-heavy language class doesn't need 'practice problems' but does need 'review vocab list'. Without student-added items the checklist felt prescriptive; now it's a real per-test plan that survives reloads, syncs cross-tab, and shows up in the dashboard countdown banner the same way the fixed items do.
+  - feat: 5bd0c91 · https://github.com/landon-personal/gradeguardnewsync/commit/5bd0c91
+
+### Fixed (web) — `/Tests` past-tests grade averages were silently broken
+
+- **`src/components/tests/TestGradeStats.jsx`** (new) + **`src/pages/Tests.jsx`** — closes prior shift backlog (12:05 UTC #2). The Past / Completed section rendered `<GradeStats assignments={tests} />`, but `subjectGradeStats` only counts items with a `grade_received` field — and Test entities don't have one. Test grades live in the testReflection localStorage blob (`gradePct`). So the panel always returned null and the "Grade Averages" card never appeared on `/Tests` no matter how many test grades a student had logged from the dashboard's reflection prompt.
+- **What changed:** new `TestGradeStats` component reads each past test's reflection blob, aggregates per subject, renders the same chip layout as the assignment-side `GradeStats`. Adds a subject-color dot at the leading edge of each chip (matches how `/Assignments` renders subject color elsewhere) and changes the header subline from "from graded assignments" to "from logged reflections" since the source-of-truth is different. Returns null when no past test has a logged grade — no half-empty header.
+- **Listeners:** `gg-test-reflection-changed` (same-tab) + `storage` events on `gg_test_reflection_*` keys so a grade entered via the Dashboard's `TestReflectionCard` immediately flows into the `/Tests` row without remount.
+- **Why this matters:** students were entering test grades into the post-test reflection prompt and getting zero aggregation surface for them — a small but real gap. This is a surface-only wire-up of data students were already entering; no new entry surface, no schema change.
+  - fix: 645185b · https://github.com/landon-personal/gradeguardnewsync/commit/645185b
+
+### Fixed (web) — `focusGoal` cross-tab + same-tab listener gap
+
+- **`src/lib/focusGoal.js`** + **`src/components/dashboard/WeeklyFocusGoalMini.jsx`** + **`src/pages/FocusTimer.jsx`** — closes prior shift backlog (12:05 UTC #4). `saveGoal()` was writing to localStorage but never dispatching a same-tab CustomEvent, and no surface that read the goal listened for the cross-tab `storage` event either. So a student editing their weekly focus goal on `/FocusTimer` in tab A saw the `WeeklyFocusGoalMini` on `/Dashboard` in tab B keep showing the OLD goal in its denominator until reload (e.g. saved 200, mini still showing "45 / 100 min").
+- Same shape as the prior shift's `GradeGoalCalculator` cross-tab listener fix — the dispatch existed, the listener didn't.
+- Three-part fix: `focusGoal.js` dispatches `gg-focus-goal-changed` from `saveGoal()` and exports `FOCUS_GOAL_STORAGE_KEY` + `FOCUS_GOAL_CHANGED_EVENT` constants so listeners don't string-literal the key. `WeeklyFocusGoalMini.jsx`'s existing storage-event listener (already bumping on focus-session writes) was extended to also bump on the goal key + the same-tab CustomEvent. `FocusTimer.jsx` got its own listener that reads `loadFocusGoal()` into the page's `weeklyGoal` state, skipping `setGoalDraft` when the inline editor is open so a cross-tab save can't clobber what the student is mid-typing.
+  - fix: b48682d · https://github.com/landon-personal/gradeguardnewsync/commit/b48682d
+
+### Hygiene (web)
+
+- **`src/components/assignments/AIAssignmentChat.jsx`** — drop two unused exception bindings flagged by lint (`parseErr`, `e`). Folded into the TestGradeStats commit since the file change was a one-token cleanup (`catch (parseErr) {` → `catch {`). Cleaner than carrying the lint-warning noise into next shift's diff.
+
+---
+
 ## [Unreleased] — 2026-05-02 12:05 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
