@@ -17,6 +17,38 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-02 06:13 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Goal-achievement celebration on `SubjectGradeGoalsStrip` 🎯
+
+- **`src/lib/subjectGradeGoals.js`** + **`src/components/dashboard/SubjectGradeGoalsStrip.jsx`** — directly closes the prior shift backlog item ("Goal achievement celebration … no celebration moment when a saved goal flips to Locked in"). The new feature shipped at 2026-05-02 04:06 UTC let students pin a target letter per subject + see a feasibility chip, but flipping from Stretch → Locked in had zero payoff.
+- **What changed:** `subjectGradeGoals.js` now persists a per-goal `celebratedAt` ISO stamp alongside `targetIdx` / `remaining`. New `markGoalCelebrated(email, subject)` + `clearGoalCelebration(email, subject)` helpers. `saveSubjectGoal` resets `celebratedAt = null` so re-saving a target lets the new bar earn fresh confetti when locked.
+- **`SubjectGradeGoalsStrip` celebration effect:** detects rows where `tag === "locked"` AND the persisted `celebratedAt` is null AND the in-memory dedupe ref doesn't already hold the subject. For those subjects: stamp `celebratedAt`, fire one `canvas-confetti` volley (110 particles, emerald/teal/indigo/amber palette, top-center origin), and surface an animated `Just hit your goal!` pill (gradient emerald→teal, Sparkles icon) in the row for 6 seconds. The persisted stamp is the source of truth across reloads — the in-memory ref is just an extra guard for fast within-mount data shifts before the localStorage write propagates back through the `gg-subject-goal-changed` listener.
+- **Dip-and-relock:** if a row that was previously celebrated drops back below locked (e.g., a poor grade lands and pushes feasibility to "stretch"), the effect quietly clears `celebratedAt`. Next time the student climbs back to locked, fresh confetti fires.
+- **Re-save dedupe:** the `gg-subject-goal-changed` and `storage` listeners now also drop the subject from the in-memory ref so a NEW goal for the same subject (e.g., student bumps target from B+ to A) gets a fresh confetti moment if it's already locked-in. Without this, the in-memory ref would block a same-mount re-celebration even after `saveSubjectGoal` reset `celebratedAt: null` in storage.
+- **Why a student notices it:** the strip now closes the loop that was missing on first ship. A student picks "I want an A in Math" → grades land → feasibility chip says "Stretch" → another grade lands → chip flips to "Locked in" → top-of-screen confetti volley + a green pill on the Math row says "Just hit your goal!" The commitment dimension now has a payoff dimension. First confetti moment in the goal-tracking flow at all.
+  - feat: d225f5f · https://github.com/landon-personal/gradeguardnewsync/commit/d225f5f
+  - fix: 87ee37f · https://github.com/landon-personal/gradeguardnewsync/commit/87ee37f
+
+### Added (web) — Saved grade goals strip in `WeeklyRecapModal` 🎯
+
+- **`src/components/dashboard/WeeklyRecapModal.jsx`** + **`src/lib/subjectGradeGoals.js`** — closes the prior shift backlog item #1 ("Per-subject grade goal could surface in WeeklyRecapModal"). The Sunday recap modal already surfaced focus minutes / intention rate / focus-minute subject goals / top subjects / coming up — but ignored the new grade-goal feature entirely. A weekly recap is the perfect surface for a feasibility readout because the full week of new grades has just landed.
+- **What changed:** new `gradeGoalRows` memo on the modal pulls `loadAllSubjectGoals(userEmail)` + the assignment list and runs them through a shared `computeGoalRows` helper extracted from `SubjectGradeGoalsStrip`. New "Grade goal progress" section with a Trophy icon header sits between "Focus minute goals this week" (renamed from the now-ambiguous "Subject goals this week") and "Where your week went" — the modal now reads top-to-bottom as: stats grid → intention completion → distraction patterns → focus-minute goals → grade goals → top subjects → coming up. Each section is independently null-gated so a fresh-account modal stays compact.
+- **Each row:** subject color dot, name, current letter / pct → target letter, feasibility chip ("Locked in" / "On track" / "Stretch" / "Out of reach"). Hover gives the same `requiredText` tooltip the calculator + dashboard strip use ("Need ~83% on next 4 assignments"). Sort is stable: most-attention-needed first → alpha within tier.
+- **Shared `computeGoalRows` helper** lives in `src/lib/subjectGradeGoals.js`. The dashboard strip was refactored to call it too — so both surfaces are guaranteed to compute identical feasibility tags from the same inputs. `gradeUtils` is injected as a `helpers` object instead of imported at the lib level so the lib stays free of cross-deps; the two callers already had gradeUtils imported anyway.
+- **Why a student notices it:** the Sunday recap is the modal a student actually reads for "how was my week?" Until now the recap could say "you completed 7 assignments" without ever showing whether those completions moved the needle on their committed grade goal. Now: a row per saved goal, with the chip live-recomputed against this week's grades. A student who set "A in Bio" in October and completed 4 Bio assignments this week sees whether those 4 grades pushed them from "Stretch" to "On track" right in the recap.
+  - feat: a933d8c · https://github.com/landon-personal/gradeguardnewsync/commit/a933d8c
+
+### Fixed (web) — `BadgeUnlockToast` pins `onDone` in a ref so parent rerenders don't restart the dismiss timer
+
+- **`src/components/gamification/BadgeUnlockToast.jsx`** — the dismiss-timer effect had `[onDone]` as its dependency array. The lone caller (`pages/Assignments.jsx:386`) passes `onDone` as an inline arrow (`onDone={() => setPendingBadges(prev => prev.slice(1))}`), so every parent rerender hands the toast a fresh function reference, the effect re-runs, the cleanup clears the in-flight 3.6s timer, and a NEW 3.6s timer starts. Concrete repro: student unlocks a badge while a useQuery for assignments is also running its 60s refetch → the refetch completes mid-toast → parent rerenders → toast timer resets → toast stays visible an extra 3.6s. With multiple refetches landing in sequence (notification poll, focus-history bump, etc.), the badge could stay onscreen indefinitely.
+- **Fix:** pin the latest `onDone` in a `useRef` updated by an effect, then make the timer effect mount-only `[]` and read `onDoneRef.current()` from the ref. Same well-trodden React pattern other long-lived timers in this codebase use (FloatingStreakCounter, NextTestCountdown's `clockTick` rollover, etc.). The toast now reliably dismisses 3.6s after first paint regardless of how many times the parent rerenders mid-window.
+  - fix: 14897cd · https://github.com/landon-personal/gradeguardnewsync/commit/14897cd
+
+---
+
 ## [Unreleased] — 2026-05-02 04:06 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
