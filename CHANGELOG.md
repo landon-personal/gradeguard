@@ -17,6 +17,32 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-02 18:13 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Subject Quick Notes scratchpad 📒
+
+- **`src/lib/subjectNotes.js`** (new) + **`src/components/dashboard/SubjectDetailModal.jsx`** + **`src/components/dashboard/GradeTrends.jsx`** — students juggle mental notes per class (formulas the teacher emphasized, vocab to review, "remember to bring graph paper") and currently stash them in scattered places — paper, the phone Notes app, sticky notes. Add a per-subject scratchpad inside the existing `SubjectDetailModal` so the notes live right where the subject's data already does.
+- **What changed:** new "Add note" / "Notes" pill in the modal header next to the existing Goal pill (amber when notes exist). Clicking reveals a 4-row textarea section pre-expanded when the modal opens; saves on blur with a transient "Saved" indicator + last-saved timestamp; Esc reverts the draft. 800-char ceiling per subject keeps the storage shape sane. Per-row "+ Note" / "Notes" pill on every `GradeTrends` row deep-links into the modal with `defaultView="notes"` so a student capturing a 5-second thought is one tap from a focused editor.
+- **Storage:** localStorage map keyed by normalized subject name (`gg_subject_notes` → `{ "<subject>": { text, updatedAt } }`). Same posture as `subjectGoals.js` / `subjectColors.js`. Sanitizes control chars on read, dispatches `gg-subject-notes-changed` on save, exposes `SUBJECT_NOTES_STORAGE_KEY` for cross-tab `storage` listeners. CMS posture: client-side only, never sent to AI, never sent to the server. Copy explicitly says "this device only · never sent to AI" so the privacy boundary is visible.
+- **Cross-tab + same-tab sync:** the modal listens for `SUBJECT_NOTES_CHANGED_EVENT` (same-tab) and `storage` events on the storage key (cross-tab) — refreshes the saved snapshot, only updates the local draft when the editor is closed so a cross-tab save can't clobber unsaved typing. `GradeTrends` carries its own `notesTick` listener so the per-row pill flips amber the instant a save lands anywhere.
+- **Why a student notices it:** a class scratchpad is something they currently can't do anywhere in the app. Open SubjectDetailModal for Spanish, jot "irregular preterite — venir, querer, hacer," close. Open it next week and the note is right there next to the grade trend. The tap-from-dashboard surface (GradeTrends row pill) makes capture cheap enough that students will actually use it.
+  - feat: a6cc916 · https://github.com/landon-personal/gradeguardnewsync/commit/a6cc916
+  - feat: d8cbc63 · https://github.com/landon-personal/gradeguardnewsync/commit/d8cbc63
+
+### Fixed (web) — `NotificationPermission` button never showed its in-flight state
+
+- **`src/components/notifications/NotificationPermission.jsx`** — `setRequesting` was declared but never called. The button's `disabled={requesting || !hasNotificationsApi}` and `{requesting ? "Asking your browser…" : ...}` branches therefore never activated. A student tapping "Enable Notifications" twice in quick succession got two parallel `Notification.requestPermission()` calls (most browsers de-dupe at the platform level so the second is a no-op, but the UI showed no in-flight feedback either way — and on a slow permissions UI the second click could land before the first finished). Set `requesting=true` at the top of the handler, clear in `finally`. Also added a top-of-handler bail (`if (requesting) return`) so the visual disable can't be bypassed by a fast tapper.
+  - fix: fe070e0 · https://github.com/landon-personal/gradeguardnewsync/commit/fe070e0
+
+### Fixed (web) — `CMSCompliance` copy-indicator timer races between back-to-back clicks
+
+- **`src/pages/CMSCompliance.jsx`** — `copyText` schedules an unguarded `setTimeout(...2000)` on every call. A user copying field A, then field B 1 second later, fired the first timer at the 2s mark and blanked the (still-active) B indicator early. Also fired `setCopiedField(null)` on an unmounted component if the page was left during the 2s window. Mirror the `AdminDashboard.copyCode` pattern that already exists: store the latest timer in `copyTimerRef`, clear before re-arming, clean up on unmount.
+  - fix: e0323e2 · https://github.com/landon-personal/gradeguardnewsync/commit/e0323e2
+
+---
+
 ## [Unreleased] — 2026-05-02 14:05 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
