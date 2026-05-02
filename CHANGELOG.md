@@ -17,6 +17,28 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-02 20:15 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Assignment Subtasks ✅
+
+- **`src/lib/assignmentSubtasks.js`** (new) + **`src/components/assignments/AssignmentSubtasks.jsx`** (new) + **`src/components/assignments/AssignmentCard.jsx`** + **`src/pages/Assignments.jsx`** + **`src/pages/FocusTimer.jsx`** — students currently get one assignment row with one notes textarea. Real-world assignments are usually multi-step ("Read chapters 3–5, answer the 4 questions, write a summary," "Lab report sections 1–3," "Worksheet pp. 5–12 odd problems"). They live in the student's head with no progress visible. Add a per-assignment subtasks checklist so a big assignment becomes a small list of steps with a progress bar.
+- **What changed:**
+  - New checklist UI inside every active `AssignmentCard`. Empty assignments show a thin `+ Break into steps` trigger so cards stay uncluttered until engaged. Once a step exists, the full panel appears: `ListChecks` header with an "X / Y" counter, a 1.5px progress bar (indigo while in progress, emerald + "All steps done!" + ✓ at 100%), the steps as toggle rows, and an `+ Add a step` row at the bottom.
+  - Adding a step keeps the input open + refocused so a student can rip off several steps in a row top-to-bottom; Esc / blur with empty draft closes the row. Up to 12 steps per assignment, 80-char ceiling per label.
+  - Hover-only ✕ on each row removes that step (both the row and any "done" mark for it). All transitions use the same Framer `AnimatePresence` height-collapse pattern as `TestPrepChecklist` for consistency.
+  - Hidden on completed assignments (the steps were a means to an end). Storage stays so an un-complete brings them back.
+  - Wired into `FocusTimer` too: when a student selects an assignment to focus on, the same subtasks panel renders below the focus pill so they can tick off steps without leaving the timer view. Hidden during breaks and when a test is the active context.
+- **Storage:** `localStorage` map keyed by assignment id (`gg_assignment_subtasks_<id>` → `{ items: [{ sid, label, done, ts }], ts }`). Same defensive read/write posture as `testPrepChecklist.js` — Safari Private mode and sandboxed iframes throw on every storage call; those throws fall through to "no items" rather than crashing the card. Sanitized on every read so a corrupted blob is dropped silently. CMS posture: client-side only, never sent to AI, never sent to the server. Student-typed step labels never leave the device.
+- **Cleanup:** `Assignments.deleteMutation.onSuccess` now calls `clearSubtasks(id)` so a deleted assignment's steps don't orphan in storage. Same shape as `Tests.deleteMutation` clearing confidence / reflection / prep-checklist / deck-mastery on delete.
+- **Cross-tab + same-tab sync:** dispatches `gg-assignment-subtasks-changed` CustomEvent on every write; listens for that + the native `storage` event on the per-id key. Two open `/Assignments` tabs stay coherent — toggling a step in one shows up immediately in the other. Same pattern `TestPrepChecklist` uses.
+- **Why a student notices it:** turns "Read chapters 3-5 and answer questions" from a vague heavy block into a 3-step list with visible progress. A student can crack open one chapter, tick the step, and feel forward motion instead of staring at the same single uncrossed assignment for three days. The FocusTimer wiring closes the loop — they can break the work down, start a focus session, and tick steps off as they actually finish them, all in one screen.
+  - feat: ca22b69 · https://github.com/landon-personal/gradeguardnewsync/commit/ca22b69
+  - feat: 027c519 · https://github.com/landon-personal/gradeguardnewsync/commit/027c519
+
+---
+
 ## [Unreleased] — 2026-05-02 18:13 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
