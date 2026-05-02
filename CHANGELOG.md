@@ -17,6 +17,37 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-02 10:15 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Grade-goal context line in `NextTestCountdown` 🏆
+
+- **`src/components/dashboard/NextTestCountdown.jsx`** + **`src/pages/Dashboard.jsx`** — closes prior shift backlog (08:06 UTC #1). The dashboard's at-the-top countdown banner had no link between test prep and the saved subject grade goals shipped in the prior shift cycle. A student prepping for a Bio test that contributes to their saved A-in-Bio goal saw zero acknowledgement of that connection in the banner.
+- **What changed:** when the active test's `subject` matches a saved grade goal, the banner renders a Trophy-iconed line below the prep/reflect controls: "Counts toward your **A** goal in Bio · now B+" with the same Locked in / On track / Stretch / Out of reach feasibility chip the `SubjectGradeGoalsStrip` and `WeeklyRecapModal` use. Tap → `/Assignments` to edit. Renders in **both** upcoming-test and post-test reflect modes — in reflect mode, the just-landed test grade has already moved feasibility, so surfacing the chip in the same breath as the reflection prompt makes the movement legible.
+- **Reuses `computeGoalRows`** from `src/lib/subjectGradeGoals.js` so all three grade-goal surfaces (banner, dashboard strip, weekly recap) compute identical feasibility tags from the same inputs. No chance of a "Locked in" chip on the banner disagreeing with a "Stretch" chip on the strip beneath it.
+- **Translucent chip palette:** `SubjectGradeGoalsStrip` uses `bg-emerald-50` chips against the neutral page background — that wouldn't read against the banner's saturated warm/emerald gradient. New `bannerGoalChip` mapper uses `bg-emerald-400/30 text-white border-emerald-200/60` style overlays that read against any of the prep tone bands or the reflect-mode emerald palette.
+- **Listeners:** new `goalsTick` state listens for `gg-subject-goal-changed` (same-tab) + `gg_subject_goal_*` storage events (cross-tab). A goal saved from `/Assignments` flips the banner chip without remount.
+- **Why a student notices it:** the highest-glanced surface on the dashboard — the at-the-top countdown banner — now ties two committed-goal flows together. A student looking at "Bio in 3 days" who set "I want an A in Bio" three weeks ago now sees "Counts toward your A goal in Bio · now B+ · On track" right under the prep checklist. The test stops feeling like an isolated event and starts feeling like a pivot point on a saved trajectory.
+  - feat: 2c9056b · https://github.com/landon-personal/gradeguardnewsync/commit/2c9056b
+
+### Added (web) — "What's next" tips panel on the final onboarding step ✨
+
+- **`src/pages/Onboarding.jsx`** — closes prior shift backlog (08:06 UTC #7). A brand-new student finishing onboarding lands on `/Dashboard` with no breadcrumb to the higher-leverage features behind it: subject grade goals (`GradeGoalCalculator` on `/Assignments`), the AI Study Assistant's quiz + flashcard tools, and the assignment/test-driven study plan generator. Until they wandered in by accident, those features were invisible.
+- **What changed:** new indigo "Once you're in" tips panel renders below the last question (above the Finish Setup button) with three items: (1) add assignments + tests so the plan can rebuild, (2) **set a subject grade goal** once a few graded assignments land — pins to dashboard with a live feasibility chip, (3) use the Study Assistant for quizzes / summaries / flashcards.
+- **Why specifically grade goals:** the prior shift's `f83a5a4` added a discoverability tip inside the `GradeGoalCalculator` panel — but that tip only reaches students who've already visited `/Assignments`. A brand-new account hasn't. The onboarding nudge closes that gap.
+  - feat: 3118277 · https://github.com/landon-personal/gradeguardnewsync/commit/3118277
+
+### Fixed (web) — `/Assignments` was silently un-deletable for ~3 weeks (since 2026-04-14)
+
+- **`src/pages/Assignments.jsx`** — **concrete user-visible regression.** The trash icon on every assignment card silently did **nothing**. Tapping it ran `onDelete(assignment.id) → handleDeleteRequest(id) → setDeleteConfirm(id)` but no `<ConfirmDialog>` was rendered in the page tree, so `deleteConfirm` flipped state and the user saw zero modal. Assignments could not be deleted from the UI at all.
+- **Root cause:** April-14 commit `484c836` introduced the `deleteConfirm`/`handleDeleteConfirm` flow, imported `ConfirmDialog`, and re-pointed `AssignmentCard`'s `onDelete` from the direct-mutate to `handleDeleteRequest`. But that commit never rendered the actual `<ConfirmDialog>` — and the `ConfirmDialog` import was later dropped during cleanup — so the click chain dead-ended in unread state for almost three weeks. The prior shift's ref-guard fix on `handleDeleteConfirm` (commit `6b8a98a`) was hardening a function nothing was calling.
+- **Why this didn't surface in lint:** `handleDeleteConfirm` showed as an unused-vars warning the whole time but the file already has 9 other unused-vars warnings (XP toast, pending badges, several mutation-undo prevs) so it blended into the noise.
+- **Fix:** re-import `ConfirmDialog`, render it at the bottom of the page tree mirroring the exact shape `Tests.jsx` already uses. `Tests.jsx` and `AdminDashboard.jsx` were unaffected — only `/Assignments` was broken.
+  - fix: 5167843 · https://github.com/landon-personal/gradeguardnewsync/commit/5167843
+
+---
+
 ## [Unreleased] — 2026-05-02 08:06 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
