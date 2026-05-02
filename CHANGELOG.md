@@ -17,6 +17,26 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-02 00:17 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Post-test reflection prompt in `NextTestCountdown` 🎯
+
+- **`src/components/dashboard/NextTestCountdown.jsx`** — closes prior shift backlog flagged **5+ shifts running** ("Reflection in `NextTestCountdown` for tests that just happened"). The dashboard's at-the-top banner used to vanish entirely once `differenceInDays(test_date, today) < 0` for every upcoming test in its 14-day window. A student who took their last test on Friday and opened the dashboard Saturday saw nothing where the countdown banner used to be — even if they hadn't logged how the test went yet.
+- Now: when there's no upcoming test in the 14-day window AND there's an unreflected past test in the last 7 days, the banner falls back to a "How did it go?" reflection prompt for that test. Most-recent past test wins (closest to 0 from below). Distinct emerald gradient (`from-emerald-500 to-teal-600`) instead of the warm prep palette so a student instantly registers the shift from "prep urgency" → "retrospective" without reading the headline. New banner header shows `N DAYS AGO` (or `1 DAY AGO`) in the same big-numeric tile pattern as the countdown days, and embeds the existing `TestCardReflection` picker — same lib + storage shape (`gg_test_reflection_<testId>`) the dashboard's `TestReflectionCard` and the `/Tests` page rows already use.
+- **Live re-evaluation:** new `reflectTick` state listens for `gg-test-reflection-changed` (same-tab) and `storage` events on `gg_test_reflection_*` keys (cross-tab). When the student saves a reflection from the embedded picker (or from any other surface — dashboard card, /Tests row, /Achievements timeline view), the `target` memo re-runs: now the just-reflected test fails the `if (loadReflection(t.id)) continue` skip-check, the banner naturally transitions to the next upcoming test (if one's now in range) or hides entirely. No remount, no flash.
+- **Why upcoming wins outright:** when a student has a test next week, prep beats retrospect on the at-the-top hero spot. The lower-on-page `TestReflectionCard` still surfaces unreflected past tests up to 14 days back as a separate list — the banner is the *single most important task right now* surface, not a catch-up list.
+- **Why a student notices it:** the banner is the dashboard's most-glanced surface. Until now it had a one-way data flow — prompt prep, then disappear. Now it closes the loop: "Bio in 3 days" → "0 TODAY" → "1 DAY AGO — how did it go?" → tap a chip → next test takes the slot. A student who's just walked out of their last test of the week opens the dashboard and the first thing they see asks for a reflection while it's fresh, instead of forgetting until the dashboard's TestReflectionCard nudges them days later.
+  - feat: 527874c · https://github.com/landon-personal/gradeguardnewsync/commit/527874c
+
+### Fixed (web) — `addFriendMutation` onError tolerates errors with no message
+
+- **`src/pages/Friends.jsx`** — every other `onError` handler in this file used the `error?.message || "Couldn't ... Please try again."` fallback pattern. `addFriendMutation` alone read `error.message` directly without the optional-chain guard. The mutationFn's own thrown errors (`new Error("Friend code not found.")`) were always fine, but an unexpected non-Error throw from the upstream `secureEntity("StudentProfile").filter` (network glitch, sandbox SecurityError, etc.) — or any Error with no `.message` — would have toasted `undefined` to the student. Aligns the file with itself; no behavioral change on the happy / known-error paths.
+  - fix: 29d5d5e · https://github.com/landon-personal/gradeguardnewsync/commit/29d5d5e
+
+---
+
 ## [Unreleased] — 2026-05-01 22:27 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
