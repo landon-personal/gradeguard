@@ -17,6 +17,35 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-03 18:05 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — FlashcardViewer Shuffle button + end-of-deck session-summary screen 🔀🏁
+
+- **`src/components/assistant/FlashcardViewer.jsx`** — closes both items #1 and #2 from the prior shift's "what I didn't get to" list (FlashcardViewer Shuffle + end-of-deck UX). Two coordinated upgrades to the deck-review surface used by both StudyAssistant and VocabQuizFromNotes.
+- **Shuffle button.** A small `Shuffle`-icon chip in the toolbar (visible whenever the visible deck has 2+ cards). Tapping it bumps a `shuffleVersion` counter, which seeds a deterministic Fisher-Yates permutation derived in a `useMemo` keyed on `[cards, shuffleVersion]`. The seed makes the order survive re-renders — the student doesn't get a fresh shuffle every time React commits. Active shuffle is announced by a `⤳` indicator next to the count chip and the Shuffle button picks up an indigo "active" treatment.
+  - **Why a student notices it:** the static order encouraged position-memorization. A re-review of the same deck used to hit cards in the same sequence — easy to mistake "I remember this is the third card" for "I remember the answer." Shuffle removes the position cue. **Closes the position-memorization risk flagged in #85.**
+- **Session-summary screen.** When the student taps the right-chevron / new "Finish" button on the last card (or marks the last card mastered), the card UI is replaced by a wrap-up panel showing:
+  - 3-tile breakdown — **Mastered** (emerald) / **Need review** (amber) / **Unseen** (gray), each with its count and label.
+  - Trophy icon + "Deck complete — all mastered!" headline when the whole deck is mastered, otherwise a Flag icon + "Session complete".
+  - Three CTAs: **"Review N weak"** (sets filter to `review` and restarts at index 0 — only shown when `review + unseen > 0`), **"Restart deck"** (filter `all`, index 0), and **"Shuffle & restart"** (bumps the shuffle seed + restarts).
+  - A subtle "% mastered" footnote when the deck isn't fully mastered yet — gives the long-term grind a visible anchor.
+  - **Why a student notices it:** the prior end-of-deck UX was the right-chevron going disabled — the student sat on the last card with no signal that the run was over and no one-tap path to "drill the cards I missed." Now the session has a real wrap-up beat and the next obvious action is a single tap. **Closes the "session done" feedback gap flagged in #85.**
+- **Right-chevron at the last card** is now a primary indigo "Finish" button (was disabled). Right-arrow keystroke past the end also finishes. Marking the last card as **Got it** auto-rolls into the summary after a 320ms beat — same pattern as the existing per-card auto-advance on mastered.
+  - feat: 6ac3f8c · https://github.com/landon-personal/gradeguardnewsync/commit/6ac3f8c
+
+### Fixed (web) — Hover-only delete buttons hidden on phones (FocusSessionHistoryModal, TestPrepChecklist)
+
+Same shape as the AssignmentSubtasks `coarse:` variant pass two shifts ago: an `opacity-0 group-hover:opacity-100` action button that's invisible on touch devices because there's no hover. On a phone or tablet, the action couldn't be triggered at all without a connected mouse.
+
+- **`src/components/dashboard/FocusSessionHistoryModal.jsx`** — per-session delete (`Trash2`) button on the focus-history modal rows. Without `coarse:`, a student couldn't remove an accidentally logged focus session from the history modal on phone/tablet — the only delete-affordance for that row.
+- **`src/components/tests/TestPrepChecklist.jsx`** — per-custom-item remove (`X`) button. Without `coarse:`, a student who added a custom test-prep item by mistake couldn't remove it from a touch device. The 5 fixed default items aren't removable, but custom items must be — and weren't.
+- Fix on both: append `coarse:opacity-100` (the project's tailwind variant matching `@media (hover: none) and (pointer: coarse)`). Permanently visible on touch, unchanged on hover-capable devices.
+  - fix: bb519af · https://github.com/landon-personal/gradeguardnewsync/commit/bb519af
+
+---
+
 ## [Unreleased] — 2026-05-03 16:02 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
