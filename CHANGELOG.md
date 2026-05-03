@@ -17,6 +17,38 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-03 02:11 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Quick Wins dashboard card ⚡
+
+- **`src/components/dashboard/QuickWinsCard.jsx`** (new) + **`src/pages/Dashboard.jsx`** — a new dashboard card that surfaces small (≤ 30 min `time_estimate`) pending assignments due in the next 7 days, sorted shortest-first then by urgency. Renders up to three rows, each with subject pill, time pill ("15 min"), due-in pill, and a one-tap **Start** button that deep-links into `/FocusTimer?assignmentId=…` with the assignment preselected.
+- **Why a student notices it:** answers the "I have 20 minutes between class and practice — what can I knock out?" question. `EstimatedWorkload` already gives totals (4.2 hrs due today). `WorkloadForecast` already gives the 14-day grid. Neither tells the student *which specific tiny task to do right now*. Quick Wins fills that gap and removes the decision-paralysis tax of scrolling /Assignments looking for the smallest thing to bite off.
+- **Snooze-aware:** filters out anything `isAssignmentSnoozed(a.id)` returns true for, and re-derives on the `gg-assignment-snooze-changed` CustomEvent + cross-tab `storage` event + a 60-second tick. Same posture as `EstimatedWorkload` / `Dashboard` — an auto-expiring snooze pops the row back into the picker without a reload. Dashboard also passes `visibleAssignments` (already snooze-filtered) so the in-component check is belt-and-suspenders.
+- **Auto-hide:** card returns null when there are zero matching candidates (no estimates in range, or every short assignment is snoozed/completed/due >7d), so it doesn't add empty real estate to the dashboard for students who haven't filled in `time_estimate` yet. Dashboard also gates the wrapper on `pendingAssignments.length > 0` so it never renders for fresh-account students.
+- **Layout:** sits just under `EstimatedWorkload` and above `DeadlineCalendar` — natural progression from "how much do I have left?" → "what's the easiest thing to do right now?".
+  - feat: 14df043 · https://github.com/landon-personal/gradeguardnewsync/commit/14df043
+
+### Fixed (web) — `StudyAssistant.sendMessage` had no double-submit guard
+
+- **`src/pages/StudyAssistant.jsx`** — the Send button was disabled while `loading`, but `handleKeyDown` (Enter-to-send), `SuggestionChips`, `EmptyChat.onStartChat`, and the file-attach completion path all called `sendMessage` directly without checking `loading`. Hitting Enter mid-await (or tapping a suggestion chip while the previous reply was still streaming) fired a second `InvokeLLM` request that overlapped the first and overwrote the messages list. Added `if (loading) return;` at the top of `sendMessage` mirroring the guards already in `generateFlashcards` / `generateQuiz` / `AIAssignmentChat.send`.
+  - fix: 9f3260d · https://github.com/landon-personal/gradeguardnewsync/commit/9f3260d
+
+### Fixed (web) — `AssignmentCard` inline grade-entry silently rejected invalid input
+
+- **`src/components/assignments/AssignmentCard.jsx`** — `GradeEntry.handleSave` parsed the draft via `gradeToPercent`. If it returned `null` (anything that isn't a known letter or a 0–100 number — e.g. `K`, `200%`, `A++`), the function bailed with a no-op early return: the popover stayed open, the input stayed unchanged, and the student had no signal that Save was rejected. Felt like a broken Save button. Added inline error state (`aria-invalid` + red border + small "Use a letter (A, B+) or 0–100" hint under the field) that surfaces on the failed Save and clears as soon as the student edits the input or hits ✕/Escape. Refocuses the input so the next keystroke updates the same field.
+  - fix: 76adcfa · https://github.com/landon-personal/gradeguardnewsync/commit/76adcfa
+
+### Fixed (web) — duplicate dead `CommandPalette.jsx` and dead Cmd+K listener in Layout
+
+- **`src/components/common/CommandPalette.jsx`** (deleted) — there were two `CommandPalette.jsx` files (`components/common/` and `components/layout/`). Only `components/layout/CommandPalette` was imported by `Layout.jsx`; the `common/` copy was orphan from a prior refactor. Removed.
+  - chore: 9b2ac66 · https://github.com/landon-personal/gradeguardnewsync/commit/9b2ac66
+- **`src/Layout.jsx`** + **`src/components/layout/CommandPalette.jsx`** — Layout had its own `useEffect` that registered a global `Cmd+K` / `?` keydown listener and toggled local `paletteOpen` / `shortcutsOpen` state. Neither piece of state was ever read or passed into `<CommandPalette>`. The actual palette opens because `CommandPalette` registers its *own* keydown listener for the same keys — so Layout's listener was a duplicate that toggled dead state. Removed the dead listener + state. Also added a `Focus Timer` entry to the palette's "Go to" group — `/FocusTimer` was missing from the global navigation set, so Cmd+K could not jump to it.
+  - fix: 2e37abb · https://github.com/landon-personal/gradeguardnewsync/commit/2e37abb
+
+---
+
 ## [Unreleased] — 2026-05-03 00:10 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
