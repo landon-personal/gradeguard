@@ -17,6 +17,35 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-03 20:09 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — DailyFocusGoalMini: adaptive daily focus target on the dashboard 🌅🎯
+
+- **`src/lib/focusGoal.js`** + **`src/components/dashboard/DailyFocusGoalMini.jsx`** (new) + **`src/pages/Dashboard.jsx`** + **`src/components/dashboard/WeeklyFocusGoalMini.jsx`** — closes the "Daily Focus Goal" item flagged in the prior shift's #85 backlog. The weekly mini shipped earlier ("Focus this week · 45/100 min") was a useful horizon, but the student still had to do the mental math to know what to put in *today*. New mini-card sits above the weekly one and surfaces a concrete daily commitment.
+- **Adaptive daily target.** `dailyPaceFor(weeklyGoal, weekMinutes, todayMinutes, daysLeftInWeek)` returns `target = ceil((goal - weekMinutesExcludingToday) / daysLeft)`. Anchoring the denominator on `weekMinutesExcludingToday` (rather than `weekMinutes`) keeps the target stable through the day — logging today's first Pomodoro doesn't drift the target downward mid-session. The behavior compounds correctly: a student who's behind early in the week sees today's number creep up; one who's ahead sees it drop. If the week's goal is already met, the card flips to a celebratory "Week's goal already hit — ride the streak" state, and any minutes today read as bonus.
+- **Two visual variants.**
+  - *Pace mode* (week not yet hit) — amber/orange progress bar + "X min today keeps you on weekly pace" / "X min to hit today's pace" / "Daily target hit · +Y bonus" depending on where the student is. Flips to emerald when met.
+  - *Week-hit mode* — emerald gradient card + "Week's goal already hit — ride the streak" + bonus-minutes context. Same `Sparkles` icon as the existing PersonalBests pattern.
+- **Coexists with WeeklyFocusGoalMini** — the weekly card stays exactly where it was. Both surfaces use the same recent-activity gate (≥1 focus session in past 14 days) and listen to the same triggers (`gg-focus-session-recorded` + `gg-focus-goal-changed` + cross-tab `storage` + next-midnight setTimeout) so they refresh in lockstep without remounts.
+- **Pace-hint coherence.** The weekly mini's old "~15 min/day for 6 days" line read as duplicate copy now that the daily card surfaces the same number directly. Reframed the weekly hint to weekly-only language: "X min left · N days to go" / "X min left · last day of the week" / "Goal hit — ride the streak." The two cards now layer cleanly: the daily for "what I'm hitting today," the weekly for "where the week ends up."
+- **Why a student notices it:** the dominant "I should probably do some focus time today, but how much?" hesitation now has a one-glance answer. A 15-min target is a single Pomodoro; a 45-min target says "block out the next hour." Adaptive math means falling behind on Monday isn't silently rolled into a worse-on-the-last-day cliff — Tuesday's number visibly steps up.
+- **Safety**: pure client-side localStorage. No PII off device. Same posture as the rest of `focusGoal.js`. Saturday-end-of-day is a defensive `noTimeLeft` short-circuit that hides the card (currently unreachable since `daysLeftInWeek` returns ≥1 for every day, but future-proofs against a Sunday-week-end variant).
+  - feat: 606ecd3 · https://github.com/landon-personal/gradeguardnewsync/commit/606ecd3
+
+### Fixed (web) — `RoomView.activateQuiz` swallowed malformed quiz JSON in silence
+
+- **`src/components/studyroom/RoomView.jsx`** — the StudyRooms host's "Start quiz" path persists `quiz_questions_json` to the room entity; both the initial-load path and the realtime subscribe path call `activateQuiz(json)` to render it. The function had `catch (e) {}` — an empty swallow. If a generation got persisted partial / malformed (rare but observed once last week per Landon's debug log), the participant sat on the "Quiz starting…" view forever with zero feedback. Now: `JSON.parse` failure → `toast.error("Couldn't load the quiz — the question data was malformed. Ask the host to regenerate.")`. Plus an explicit empty-array branch ("The host's quiz had no questions. Ask them to regenerate it.") so a `[]` payload doesn't fall through silently either.
+  - fix: 3a71396 · https://github.com/landon-personal/gradeguardnewsync/commit/3a71396
+
+### Polished (web) — `WeeklyFocusGoalMini` paceHint reframed to complement the daily card
+
+- **`src/components/dashboard/WeeklyFocusGoalMini.jsx`** — see the DailyFocusGoalMini section above. Changing the per-day breakdown to a weekly-runway summary so the two stacked cards each say something different.
+  - fix: 3a71396 · https://github.com/landon-personal/gradeguardnewsync/commit/3a71396
+
+---
+
 ## [Unreleased] — 2026-05-03 18:05 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
