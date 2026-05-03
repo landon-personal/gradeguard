@@ -17,6 +17,34 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-03 22:10 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — `PomodoroTimer` auto-cycle: focus → break → focus, hands-free 🍅🔁
+
+- **`src/components/dashboard/PomodoroTimer.jsx`** — opt-in toggle (off by default, persisted in `localStorage` `gg_pomodoro_autocycle`) that auto-starts the next session 3.5s after a real time-elapsed completion. The mode-switch logic in `advance()` was already correct (focus → short break, every 4th focus → long break, break → focus) — what was missing was the auto-resume. Auto-cycle is what the actual Pomodoro Technique calls for; until now a student had to tap Play between every session, which is exactly when distraction bleeds back in.
+- **Cancel paths.** Pause / Skip / Reset / Mode-switch all clear the pending hand-off so a student bailing out isn't surprised by an auto-resume. Tapping Play during the 3.5s grace period kicks off the next session immediately rather than waiting out the timeout. Skip never auto-resumes — manual skips signal "I'm done with this block," not "advance the cycle."
+- **UI.** `Repeat` icon button next to the existing mute control in the timer's expanded panel. Indigo when on, grey when off. Tooltip explains the long-break rule. The existing session-dots row (4 pips + "N done" counter) already conveys cycle position, so no other UI adornment was needed.
+- **Why a student notices it:** the most common Pomodoro failure mode is "I finished focus, walked away, never came back." Auto-cycle removes the manual restart so the student returns to a timer already counting down on the next session. The 3.5s grace makes opt-out painless.
+- **Bonus cleanup:** `src/components/layout/FloatingPomodoro.jsx` was a parallel implementation of the same widget that's been sitting in the tree unimported since it was added — earlier in this shift I built the auto-cycle feature on the wrong file before realizing the dashboard one is what's actually rendered (Layout.jsx mounts `dashboard/PomodoroTimer`). Ported the feature onto the rendered widget and deleted the dead file (-539 lines).
+  - feat: 7caf635 · https://github.com/landon-personal/gradeguardnewsync/commit/7caf635
+  - (earlier work on dead `FloatingPomodoro.jsx`: 0fb6dda + 5f47c85 — kept in history for transparency, superseded by 7caf635)
+
+### Fixed (web) — `AssignmentCard` "all subtasks done → mark complete" silently no-op'd
+
+- **`src/components/assignments/AssignmentCard.jsx`** — `onStatusChange`'s signature is `(assignment, status)`, but the all-subtasks-done prompt was passing `assignment.id` (a string) as the first arg. Inside `Assignments.handleStatusChange` that meant `assignment.status` was `undefined` (so the `wasNeverCompleted` gate let the path through), `assignment.id` was `undefined` (so the update mutation hit the API with `id=undefined` and silently failed), and `awardPoints` got a string-spread junk object. Net visible bug: a student who built out subtasks for an assignment, ticked the last one, and accepted the "Mark assignment complete?" prompt saw nothing happen — no completion, no XP, no toast. Two-character fix: `assignment.id` → `assignment`.
+  - fix: 7d526f5 · https://github.com/landon-personal/gradeguardnewsync/commit/7d526f5
+
+### Polished (web) — `InviteLinkButton` label / clipboard hygiene on the share path
+
+- **`src/components/studyroom/InviteLinkButton.jsx`** — two bugs in the StudyRooms invite button:
+  1. After a successful native-share, the post-action label said "Copied" even though `navigator.share` doesn't touch the clipboard. Now distinguishes "Shared" vs "Copied" based on which path actually ran.
+  2. After a share-sheet *cancel*, the code fell through to writing the URL to the clipboard. Cancel-vs-error are indistinguishable on most platforms, so a student who hit "cancel" on the share sheet had the URL silently overwrite whatever was on their clipboard. Removed the fallthrough — clipboard write only happens when share isn't available at all.
+  - fix: 738790a · https://github.com/landon-personal/gradeguardnewsync/commit/738790a
+
+---
+
 ## [Unreleased] — 2026-05-03 20:09 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
