@@ -56,6 +56,11 @@ Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, a
 - **`src/components/dashboard/SubjectGoalsStrip.jsx`** — the Suggest button (rendered when at least one subject is under its weekly minutes goal) finds the most-behind subject's first non-completed assignment and hands it to the parent for a focus-session deep-link. The lookup didn't filter snoozed, so a student who'd snoozed everything in their behind-on-Math subject would still get a snoozed row dropped into a focus session. Filter snoozed out so Suggest either finds a real candidate or falls through to the "no pending {subject} assignments" toast the parent already handles.
   - fix: 4a611ac · https://github.com/landon-personal/gradeguardnewsync/commit/4a611ac
 
+### Fixed (web) — `FocusTimer` picker dropdown listed snoozed assignments
+
+- **`src/pages/FocusTimer.jsx`** — the assignment-picker dropdown rendered every non-completed assignment regardless of snooze state, so a student who'd parked an assignment via Snooze still saw it as a pickable option in `/FocusTimer`. The deep-link path (`/FocusTimer?assignmentId=xxx`) is intentionally left alone — if the student explicitly clicked into a focus session for a snoozed assignment, honoring that beats refusing to load it. The picker dropdown filters snoozed out (with a guard so the currently-selected assignment is kept even when snoozed, so the picker doesn't seem to forget the active selection mid-session). Same minute-tick + cross-tab event listener pattern as `Dashboard` / `/Assignments` / `AssignmentSnoozeButton` so the picker re-derives without a page reload when a snooze auto-expires.
+  - fix: 51dab00 · https://github.com/landon-personal/gradeguardnewsync/commit/51dab00
+
 ---
 
 ## [Unreleased] — 2026-05-02 22:16 UTC shift
