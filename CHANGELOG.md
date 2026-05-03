@@ -47,6 +47,17 @@ Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, a
 - **`src/Layout.jsx`** + **`src/components/layout/CommandPalette.jsx`** — Layout had its own `useEffect` that registered a global `Cmd+K` / `?` keydown listener and toggled local `paletteOpen` / `shortcutsOpen` state. Neither piece of state was ever read or passed into `<CommandPalette>`. The actual palette opens because `CommandPalette` registers its *own* keydown listener for the same keys — so Layout's listener was a duplicate that toggled dead state. Removed the dead listener + state. Also added a `Focus Timer` entry to the palette's "Go to" group — `/FocusTimer` was missing from the global navigation set, so Cmd+K could not jump to it.
   - fix: 2e37abb · https://github.com/landon-personal/gradeguardnewsync/commit/2e37abb
 
+### Chore (web) — drop dead `redirectIfSchoolSubdomain` helper inside `Onboarding.handleAuth`
+
+- **`src/pages/Onboarding.jsx`** — the helper was defined as a closure inside the `try` block of `handleAuth` but never called. The login path that needed school-subdomain redirection inlined its own (slightly different) logic instead. 13 lines of dead code, removed.
+  - chore: 60bf512 · https://github.com/landon-personal/gradeguardnewsync/commit/60bf512
+
+### Fixed (web) — dashboard cards used `<a href>` for internal nav (full page reload)
+
+- **`src/components/dashboard/QuickWinsCard.jsx`** + **`src/components/dashboard/TodaysFocusCard.jsx`** — both cards rendered their "All" / "Go to Assignments/Tests" links as `<a href={createPageUrl(...)}>` instead of react-router `<Link to={...}>`. Tapping either fired a full page reload, blowing away React Query caches, focus-timer state, and any in-progress modals. Switched to `<Link>` so the click is a SPA route change.
+  - polish: 4a9260e · https://github.com/landon-personal/gradeguardnewsync/commit/4a9260e
+  - fix: e7daf7e · https://github.com/landon-personal/gradeguardnewsync/commit/e7daf7e
+
 ---
 
 ## [Unreleased] — 2026-05-03 00:10 UTC shift
