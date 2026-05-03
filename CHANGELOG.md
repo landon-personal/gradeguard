@@ -17,6 +17,40 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-03 08:08 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Quick Capture: 3-field inline assignment add on the dashboard ⚡
+
+- **`src/components/dashboard/QuickCaptureCard.jsx`** (new) + **`src/pages/Dashboard.jsx`** — a collapsed-by-default card sits between the dashboard hero and the AI plan section. Tapping the "Quick add" pill expands a single-row form: name + subject + due date + Add button. Posts the same `secureEntity("Assignment").create({ ..., user_email, status: "pending", share_with_friends: true })` the full /Assignments form does, but skips the 5 optional fields (difficulty, weight, time_estimate, notes, recurrence) — those stay editable on /Assignments later for students who want them.
+- **Stays expanded after save** so a student copying a list off a planner can capture multiple assignments without re-tapping. Re-focuses the name field after each successful save.
+- **Why a student notices it:** the dominant "log what just got assigned in class" flow drops from "navigate to /Assignments → click + → fill 8-field modal → submit" to "tap pill → 3 inputs → Add." The full form is one tap away via the "Need difficulty / weight / notes? Open full form →" link below the inputs. Default sane values (status=pending, share_with_friends=true, due_date=tomorrow) so the lightest-possible form still produces a row that downstream surfaces (Workload, AI plan, EstimatedWorkload) treat normally.
+- **Cache invalidation** uses prefix-only `queryClient.invalidateQueries({ queryKey: ["assignments"] })` so every cache shape (`['assignments']`, `['assignments', userEmail]`, `['assignments-streak', ...]`, `['assignments-focus', ...]`) refreshes — same pattern /Assignments uses.
+  - feat: 34cb3d0 · https://github.com/landon-personal/gradeguardnewsync/commit/34cb3d0
+
+### Added (web) — Subtask "X min left" chip on dashboard cards ⏱️
+
+- **`src/components/dashboard/TodoItemCard.jsx`** + **`src/components/dashboard/TodaysFocusCard.jsx`** + **`src/lib/assignmentSubtasks.js`** — closes prior shift's "what I didn't get to" #2. Both dashboard chips already showed step-count progress (`ListChecks 3/5 ✓`), but a student watching those rows had no way to see how much actual time was left without expanding the panel. New `remainingMinutesFor(assignmentId)` lib export sums `mins` across UNCHECKED items; both cards display "45 min left" / "1h 30m left" next to the existing count chip when (a) the assignment has any mins-tagged steps and (b) the panel isn't 100% complete. Reuses the same cross-tab + storage event listener already in place — no extra subscriptions.
+  - feat: 4e29e87 · https://github.com/landon-personal/gradeguardnewsync/commit/4e29e87
+
+### Fixed (web) — `SubjectDetailModal` mixed snoozed + active rows in the same date order
+
+- **`src/components/dashboard/SubjectDetailModal.jsx`** — closes prior shift's "what I didn't get to" #6. The previous shift made snoozed rows visually distinct (amber treatment + leading 💤) but they still sorted by due date alongside active rows. A student with 3 Math assignments — 1 active due Wed, 2 snoozed until Friday — would see the snoozed rows at the bottom but only because they happened to be due later. A snoozed row that was *overdue today* still floated to the top with the same visual weight as an active overdue row. Sort snoozed-last as a primary key, due-date as secondary, so the active stack always reads top-down regardless of when the snoozed rows were originally due.
+  - fix: f74a6d8 · https://github.com/landon-personal/gradeguardnewsync/commit/f74a6d8
+
+### Fixed (web) — `NotificationBell` red-dot lagged ~60s after snooze toggle
+
+- **`src/components/notifications/NotificationBell.jsx`** — the bell filters snoozed assignments out of its upcoming-count, but the underlying `useQuery` has `staleTime=60000` and the bell never listened for the `gg-assignment-snooze-changed` CustomEvent. Snoozing an assignment via `AssignmentSnoozeButton` (or letting one auto-wake) didn't change the assignments query data — only the localStorage snooze state — so the bell kept showing the red dot until the next 60s refetch tick or an unrelated re-render. Added the same snoozeTick listener pattern Dashboard / EstimatedWorkload / QuickWinsCard already use: bump on the local CustomEvent + cross-tab `storage` event + 60s tick. Now the dot updates instantly on every snooze toggle.
+  - fix: 225238e · https://github.com/landon-personal/gradeguardnewsync/commit/225238e
+
+### Fixed (web) — `FloatingPomodoro` shortcuts fired through Radix consumers
+
+- **`src/components/layout/FloatingPomodoro.jsx`** — the global P / Space handler bailed when `e.target` was an `INPUT` / `TEXTAREA` / contentEditable, but didn't check `e.defaultPrevented`. Pressing P inside an open Radix `Select` to type-ahead (e.g. "P" jumps to "Physical Education" in the new QuickCaptureCard subject picker) also toggled the FloatingPomodoro panel; Space-to-confirm-selection in any Radix `Select` also started/stopped the timer. Same fix shape Tests/Assignments adopted last shift: bail on `e.defaultPrevented` so Radix's own `preventDefault` skips the global handler.
+  - fix: 8450b0b · https://github.com/landon-personal/gradeguardnewsync/commit/8450b0b
+
+---
+
 ## [Unreleased] — 2026-05-03 06:10 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
