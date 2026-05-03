@@ -38,10 +38,29 @@ Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, a
 - **Belt-and-suspenders**: `applySubtaskTemplate` refuses to overwrite a non-empty list — UI already gates on `items.length === 0`, but the lib double-checks so a future caller can't accidentally wipe a student's hand-written checklist by tapping a template chip.
   - feat: 5bb0801 · https://github.com/landon-personal/gradeguardnewsync/commit/5bb0801
 
-### Fixed (web) — `ChromeExtensionNudge` had no Esc-to-dismiss + no backdrop-click-to-dismiss
+### Added (web) — Subtasks v4.1: template suggested mins + save-your-own templates 📋⏱️
 
-- **`src/components/ChromeExtensionNudge.jsx`** — the "You're on a roll!" Chrome-extension prompt that fires on the 5th completed assignment was the only modal in the app without either Escape or backdrop-click dismissal. A student tapping it by accident — or who simply doesn't want to think about extensions mid-flow — had to find the small ✕ in the corner or the "Maybe later" link to escape. Now: window keydown listener for Escape (cleared on unmount); `onClick={onClose}` on the backdrop with `stopPropagation` on the dialog; `role="dialog"` / `aria-modal="true"` / `aria-label` for screen-reader parity with the rest of the app's modal dialogs.
+- **`src/lib/assignmentSubtasks.js`** + **`src/components/assignments/AssignmentSubtasks.jsx`** — two coordinated upgrades to the v4 quick-start templates that shipped earlier this same shift:
+  1. **Built-in templates encode suggested per-step minutes.** Tapping the "Lab" template no longer just drops in 4 labels — it drops in 10/30/15/30 minutes alongside them. The dashboard's existing "X min left" chip works immediately on a 1-tap apply, and the Subtasks header shows "~85 min left of ~85 min planned" without the student touching the per-step Clock pill. Generic / "default" template deliberately omits mins (better nothing than a fake budget).
+  2. **Save-your-own templates.** When the Subtasks panel has 2+ items, a "Save" button appears in the header. Tapping it inlines a "Template name" input (e.g. "Weekly Math HW"); pressing Enter persists the current items (labels + mins) as a reusable template under the student's `gg_subtask_user_templates` localStorage key. The templates appear in the picker under a "Your templates" section alongside built-ins. Each user template has a ✕ for in-place delete. Cross-tab + same-tab sync via the `gg-subtask-user-templates-changed` CustomEvent + native storage event.
+- **Why a student notices it:** built-in templates that include time-budget suggestions are the difference between "I have a checklist" and "I have a plan." A student tapping "Essay / paper" on an AP Lit assignment now sees they're looking at ~115 min of work split into 4 chunks — they can plan a Pomodoro session around the 60 min "First draft" step. And once a student has built their own checklist for a recurring assignment shape (the weekly Calc HW, the recurring lab report), 1-tap reuse on next week's row replaces 4-8 manual taps.
+- **Safety**: `user_`-prefixed key namespace prevents collision with built-in template keys; sanitization caps at MAX_USER_TEMPLATES=8, MAX_USER_TEMPLATE_LABEL=40, MAX_SUBTASKS=12 per template — same caps as the rest of the subtasks system.
+  - feat: 537b6c8 · https://github.com/landon-personal/gradeguardnewsync/commit/537b6c8
+
+### Fixed (web) — Three modals had no Esc-to-dismiss
+
+Every Radix-based dialog in the app honors Escape, but three custom-positioned modals didn't. Same shape across all three: a `<div className="fixed inset-0">` overlay rendered conditionally with no global keydown listener.
+
+- **`src/components/ChromeExtensionNudge.jsx`** — the "You're on a roll!" Chrome-extension prompt that fires on the 5th completed assignment also lacked backdrop-click dismissal entirely. A student tapping it by accident had to find the small ✕ in the corner or the "Maybe later" link. Added: window keydown listener for Escape; `onClick={onClose}` on the backdrop with `stopPropagation` on the dialog; `role="dialog"` / `aria-modal="true"` / `aria-label` for screen-reader parity with the rest of the app's modal dialogs.
   - fix: 09e6ca7 · https://github.com/landon-personal/gradeguardnewsync/commit/09e6ca7
+- **`src/components/updates/WhatsNewModal.jsx`** + **`src/components/updates/V120Modal.jsx`** — both update modals already had backdrop-click dismissal via a `motion.button` overlay, but no Escape handler. A keyboard user reaching for Esc was stuck on the modal until they tabbed to and clicked one of the explicit dismiss buttons. Added the same window keydown listener pattern to both.
+  - fix: 10c1010 · https://github.com/landon-personal/gradeguardnewsync/commit/10c1010
+
+### Fixed (web) — `FloatingPomodoro` document.title stayed frozen at paused-countdown text
+
+- **`src/components/layout/FloatingPomodoro.jsx`** — the floating Pomodoro timer overrides `document.title` every second while running (e.g. "12:34 — GradeGuard") and restores it on reset/unmount, but pause (`stop`) didn't restore. A student who tapped Pause saw the tab title sit at the paused countdown indefinitely until they reset or navigated. Even a quick "let me check this thing for 10 seconds" pause left the wall-tab reading like a live timer.
+- Now `stop()` calls `restoreTitle()` unconditionally. Resume re-snapshots the (just-restored) original title and starts overriding again — same flow as a fresh start. Natural-end ("⏰ Time's up!") path is unchanged and still stays put as the alert until the student resets.
+  - fix: 89382c1 · https://github.com/landon-personal/gradeguardnewsync/commit/89382c1
 
 ---
 
