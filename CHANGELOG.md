@@ -17,6 +17,35 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-03 16:02 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — "Worked Xh ago · Y min logged" focus-history chip on assignments 🕐📚
+
+- **`src/lib/assignmentFocusLog.js`** (new) + **`src/components/assignments/AssignmentCard.jsx`** + **`src/components/dashboard/TodaysFocusCard.jsx`** — closes the long-standing "the app already knows which assignment I just spent 25 min on, but never tells me" gap. Every focus session has been getting stamped with the assignment name into `gg_focus_sessions_<date>` for months (both FocusTimer.handleComplete and the floating PomodoroTimer write the same shape), but no surface joined that history back to the assignment row. Result: a student looking at /Assignments couldn't tell which assignments they'd been actively grinding on vs. which had been sitting untouched for a week.
+- **New `assignmentFocusLog` lib** — read-side helper that walks the last 30 days of session buckets and aggregates `totalMinutes` + `lastCompletedAt` + `sessionCount` per assignment name. Plus `subscribeFocusSessionChanges` (combines the same-tab `gg-focus-session-recorded` CustomEvent the writer side already dispatches with cross-tab `storage` events filtered to the focus-session prefix), `formatLastWorked` (just now / Xm ago / Xh ago / Xd ago / "MMM d"), and `formatMinutes` (matches the Subtasks remaining-mins shape).
+- **AssignmentCard chip** — a small `History`-icon chip in the meta row reading "Worked 2h ago · 50 min logged". Hidden when no sessions exist so cards for brand-new assignments stay clean. Refreshes on the focus-recorded event + a 60s tick so the relative-time label doesn't grow stale on a card that's been on screen.
+- **TodaysFocusCard chip** — same chip surfaces on the dashboard's *Today's Focus* card when the focus item is an assignment with prior sessions, so the student sees at a glance whether they're returning to in-progress work or starting cold. Only shown for assignment focus (test focus uses the `Study: <name>` shape with its own dedicated study-plan surface).
+- **Why a student notices it:** the strongest "I've been ignoring this" signal in the app — a 4-day-old assignment with zero focus minutes vs. one with "Worked 2h ago · 75 min logged" tells different stories, and now the card surfaces both. For active assignments, the cumulative count rewards the grind ("I've put 90 min into this paper") in a way the existing time-estimate field can't (that's *planned*, not *spent*). All client-side, no server changes — the writer side has been intact for months, the reader side just didn't exist.
+- **Safety**: 30-day lookback cap keeps the read bounded on slow devices (worst case ~300 array entries scanned). Match-by-name (the only join key the legacy session-row shape carries) — documented as a known soft data-loss case for renamed assignments, same posture the writer side has had all along.
+  - feat: 9356bf0 · https://github.com/landon-personal/gradeguardnewsync/commit/9356bf0
+
+### Fixed (web) — Four more modals had no Esc-to-dismiss
+
+Continuing this morning's modal-dismiss sweep. Same shape across all four: a `<div className="fixed inset-0">` overlay (or an `absolute` popover) rendered conditionally with no global Escape listener. Every Radix-based dialog in the app honors Escape, but these custom-positioned overlays didn't.
+
+- **`src/components/dashboard/WeeklySummaryButton.jsx`** — the parent-email "Send Weekly Summary" modal in the Dashboard header. Window keydown listener attached only while open + mid-send-guarded so a stray Esc during the 5-10s server round-trip can't tear the modal down before the success / error toast lands. `role="dialog"` / `aria-modal="true"` / `aria-label` for screen-reader parity.
+  - fix: f66ccff · https://github.com/landon-personal/gradeguardnewsync/commit/f66ccff
+- **`src/components/assignments/SmartScanModal.jsx`** — the camera/Smart-Scan agenda-photo importer's mountedRef comment explicitly promised "X, Esc, backdrop click" dismissal, but only the X button was wired up. Added the keydown listener with a mid-scan / mid-clarify guard (`isBusy`) so a stray Esc during the 5-15s upload + LLM chain can't tear the modal down before the result lands. Backdrop `onClick` on the overlay + `stopPropagation` on the dialog so a tap outside dismisses without bubbling. `role="dialog"` / `aria-modal="true"` / `aria-label` added.
+  - fix: b2a2729 · https://github.com/landon-personal/gradeguardnewsync/commit/b2a2729
+- **`src/components/assignments/AIAssignmentChat.jsx`** — the AI assignment-import chat overlay. Window keydown with a mid-send guard (`loading`) so a stray Esc during a 5-15s LLM round-trip can't tear the chat down before the assistant's reply lands.
+  - fix: e310ddb · https://github.com/landon-personal/gradeguardnewsync/commit/e310ddb
+- **`src/components/notifications/NotificationSettingsPanel.jsx`** — the bell-popover settings panel. mountedRef comment promised Esc dismissal, but the listener was never wired up. The bell's parent provides backdrop-click dismissal, but a keyboard user editing the toggles below was stuck on the popover until they tabbed back to the X. Window keydown with a mid-save guard so a stray Esc during the persist round-trip can't tear the popover down before invalidateQueries fires + the success-path onClose.
+  - fix: 57e46c7 · https://github.com/landon-personal/gradeguardnewsync/commit/57e46c7
+
+---
+
 ## [Unreleased] — 2026-05-03 14:09 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
