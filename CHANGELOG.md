@@ -17,6 +17,45 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-03 06:10 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Subtasks v3: inline rename + per-step time estimates ✏️⏱️
+
+- **`src/lib/assignmentSubtasks.js`** + **`src/components/assignments/AssignmentSubtasks.jsx`** — closes prior shift's "what I didn't get to" #1 (inline rename) and #2 (per-step time estimate). Two coordinated upgrades to the per-assignment Subtasks panel:
+  - **Inline rename** — pencil button on row hover swaps the label for an `<input>`. Enter / blur saves through `renameSubtask`, Esc cancels, empty input reverts (the explicit ✕ remains the way to delete a step). Wires up the `renameSubtask` lib export which has been built since Subtasks v2 but never surfaced in the UI. Drag-to-reorder is auto-disabled while a row is being edited so a stray drag doesn't interrupt typing.
+  - **Per-step time estimate** — small Clock pill on each row. When set: shows `⏰ 15 min`, tap to edit / clear. When unset: tap a hover-only "+ time" affordance to open an inline preset picker (5/10/15/20/30/45/60 + custom). Stored as an optional `mins` field on each subtask item; `sanitizeItems` round-trips it; missing/invalid values are absent (not null). New lib exports: `setSubtaskMinutes(assignmentId, sid, mins|null)`, `totalMinutesFor(assignmentId)`, `MAX_SUBTASK_MINS=600`.
+  - **Header surfaces the total** — when any step has a `mins` value, the panel header shows `Steps · ~45 min left` (or `~1h 30m` total once everything's done). Lets a student see at a glance "this whole assignment is 90 min of work, and 45 of that is left" so a Pomodoro session can be planned around it.
+  - **Why a student notices it:** typo'd a step? Hover → pencil → fix it inline. Want to plan a 30-min focus session? Glance at the panel header. The subtask checklist becomes a real planning tool that tells you how much time is left, not just how many checkboxes.
+  - feat: ad44cd0 · https://github.com/landon-personal/gradeguardnewsync/commit/ad44cd0
+  - polish: af2ed0f · https://github.com/landon-personal/gradeguardnewsync/commit/af2ed0f
+
+### Fixed (web) — `window.location.href` SPA-internal nav causing full reload (4 places)
+
+A sweep that closes out the same family of bug the prior two shifts have been picking off (QuickWinsCard / TodaysFocusCard `<a href>` switches). Four more places forced a full page reload to hop to in-SPA routes:
+
+- **`src/components/layout/CommandPalette.jsx`** — Cmd+K → "Privacy policy" / "Security & trust center" did `window.location.href = "/privacy"` / `"/security"`. Both routes are part of `App.jsx`'s SPA route table, so every Cmd+K hop tore down React Query, focus-timer state, etc. `useNavigate` was already imported. Switched to `navigate(...)`. Logout still uses `window.location.href` — that's the actual cross-domain redirect.
+  - fix: 447b9a2 · https://github.com/landon-personal/gradeguardnewsync/commit/447b9a2
+- **`src/Layout.jsx`** — two paths: (a) `handleDismissWhatsNew(targetPage)` (the "What's New?" modal CTA buttons) used `window.location.href = createPageUrl(...)` and (b) the FriendMessage live-subscribe toast's onClick (jumping to `/Friends?connectionId=…&tab=messages`) did the same. Both now use `navigate()`. Cross-domain logout / session-expiry redirects intentionally kept as full reloads.
+  - fix: ffab4fc · https://github.com/landon-personal/gradeguardnewsync/commit/ffab4fc
+- **`src/components/tutorial/TutorialOverlay.jsx`** — the interactive tour's "Try it now" CTA on every step (steps 2-6 each link to `/Assignments?new=1`, `/Tests?new=1`, `/StudyAssistant`, `/Achievements`, `/Dashboard`) used `window.location.href`. Worse than just a wasted reload: the reload tore down the tutorial overlay's parent component, so the next time the overlay reopened, the tour state was reset to step 1. Switched to `navigate()` + explicit `onClose()` so the overlay closes cleanly when the student jumps into a feature.
+  - fix: 997a7d4 · https://github.com/landon-personal/gradeguardnewsync/commit/997a7d4
+- **`src/lib/PageNotFound.jsx`** — the 404 page's "Go Home" button used `window.location.href = '/'`. The 404 is the worst place to force a reload because it discards the React Query auth fetch we just did to figure out whether to show the "Admin Note" branch. Switched to `navigate('/')`.
+  - fix: 4b5a076 · https://github.com/landon-personal/gradeguardnewsync/commit/4b5a076
+
+### Fixed (web) — `Friends` URL-param hydration didn't react to in-SPA nav (regression-followup)
+
+- **`src/pages/Friends.jsx`** — the page's URL-param hydration `useEffect` was empty-deps, reading `window.location.search` exactly once on mount. Pre-shift this was OK because the Layout friend-message toast did `window.location.href` (full reload remounted Friends). The Layout fix in this shift switched that toast to `navigate()`, which means a student already on `/Friends` who taps a "new message" toast now triggers a same-component `location.search` change — and the empty-deps effect didn't pick it up. Fix: `useLocation` + `[location.search]` dep so the effect re-runs on every same-tab nav. Same shape `Assignments.jsx` and `Tests.jsx` already use for their own deep-link params.
+  - fix: b1b426f · https://github.com/landon-personal/gradeguardnewsync/commit/b1b426f
+
+### Chore (web) — consolidate `Assignments` URL-param consumption into a single replaceState
+
+- **`src/pages/Assignments.jsx`** — the deep-link `useEffect` handled four params (`new=1`, `q`, `filter=overdue`, `subject`) but issued up to three separate `window.history.replaceState` calls per nav. Functionally a no-op for routing, but each replaceState shows up as a separate entry in DevTools' history view, making the back-stack noisier. `Tests.jsx` already had the consolidated single-replaceState shape.
+  - chore: b5239fc · https://github.com/landon-personal/gradeguardnewsync/commit/b5239fc
+
+---
+
 ## [Unreleased] — 2026-05-03 04:26 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
