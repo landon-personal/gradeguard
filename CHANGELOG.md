@@ -17,6 +17,40 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-03 12:19 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — QuickCapture v2: Test mode + touch-friendly date pills + smart test detection 🧪⏱️
+
+Three coordinated upgrades to the QuickCaptureCard shipped two shifts ago. Closes prior shift's #81 backlog: "QuickCapture due-date presets", "QuickCapture Test variant", and "Touch-friendly subtask management" cousin.
+
+- **Entity-type toggle (Assignment | Test)** — small segmented control at the top-right of the form. Test mode posts to `secureEntity("Test").create({ name, subject, test_date, status: "upcoming", share_with_friends: true })` instead of the assignment shape, invalidates the `["tests"]` query prefix instead of `["assignments"]`, deep-links the "Open full form →" link to `/Tests?new=1`. Same 3 fields, just remapped. Header icon + Submit button recolor by mode (rose for test, indigo for assignment) so the destination is unambiguous at a glance.
+- **Date preset pills** — 4 touch-friendly pills below the inputs: `Today`, `Tomorrow`, `Friday` (next upcoming Friday — if today IS Friday, returns next week's Friday so the pill always means "the upcoming Friday"), `+1wk`. Highlights whichever pill matches the current date. Manual date input via the native picker still works and de-highlights all pills. The native iOS / Android date picker is fiddly on touch — a 1-tap pill is dramatically faster for the common cases.
+- **Smart test detection** — when name matches `/test|quiz|exam|midterm|final|assessment/i` while in Assignment mode, surface a one-tap "🔔 Looks like a test — switch?" nudge above the action row. Tapping "Switch to Test" flips the mode + dismisses; tapping ✕ dismisses without switching. Won't re-prompt in the same session (`didAutoSwitch` latch) so a student who deliberately wrote "Quiz Prep" as a homework assignment isn't pestered.
+- **Why a student notices it:** the universal capture flow now covers BOTH things students log on the dashboard — assignments AND tests — without leaving the Quick Capture surface. On phones, tapping "Friday" beats wrestling with the native date picker. And typing a test-shaped name no longer requires backing out to /Tests.
+  - feat: eaf68ea · https://github.com/landon-personal/gradeguardnewsync/commit/eaf68ea
+
+### Fixed (web) — `SubjectDetailModal` snooze auto-expiry didn't refresh row treatment while modal was open
+
+- **`src/components/dashboard/SubjectDetailModal.jsx`** — closes prior shift's #81 backlog. `useSubjectDetails` derives a per-row `_snoozed` flag via `isAssignmentSnoozed` (localStorage-backed) inside a `useMemo` keyed on `[subject, assignments, tests]`. When a snooze auto-expired while the modal was open — no event fires for time-based expiry — the assignments reference stayed stable until React Query refetched, so the modal kept rendering the amber snoozed treatment + sorting the row to the bottom even after it should have flipped back to active.
+- Same shape as the prior shift's `NotificationBell` fix: parent component now bumps a `snoozeTick` on the `gg-assignment-snooze-changed` CustomEvent + cross-tab `storage` event + 60s tick, threaded into the `useMemo` deps. Interval / listeners only attach while the modal is open to avoid burning a `setInterval` on every dashboard subject swatch render.
+  - fix: d0decf1 · https://github.com/landon-personal/gradeguardnewsync/commit/d0decf1
+
+### Fixed (web) — `AssignmentSubtasks` hover-only buttons unreachable on touch devices
+
+- **`src/components/assignments/AssignmentSubtasks.jsx`** + **`tailwind.config.js`** — closes prior shift's #80/#81 "Touch-device subtask management" backlog. Subtasks v3 added 4 hover-only buttons per row (drag handle, Clock+, Pencil rename, X remove) all gated behind `opacity-0 group-hover:opacity-100`. On phones / tablets — where many CMS students study during the school day — the row would render but only the toggle worked. No way to rename a typo, remove a step, or add a time estimate without an external mouse.
+- Adds a tailwind `coarse:` variant via `addVariant` — `@media (hover: none) and (pointer: coarse)` — and tags the four button classes with `coarse:opacity-100`. On touch the buttons are now permanently visible; on hover-capable devices the existing hover-to-reveal UX is unchanged so the row stays clean.
+  - fix: f04a645 · https://github.com/landon-personal/gradeguardnewsync/commit/f04a645
+
+### Fixed (web) — `AssignmentCard` snooze auto-expiry didn't flip card back without an event
+
+- **`src/components/assignments/AssignmentCard.jsx`** — closes prior shift's #81 backlog. Card tracks `snoozedUntil` in local state, refreshed only on the `gg-assignment-snooze-changed` CustomEvent + cross-tab `storage` event. When a snooze expired purely by time passing — no event fires for time-based expiry — the card kept rendering the snoozed treatment until either /Assignments re-rendered (~60s React Query tick) or an unrelated remount.
+- Add a self-arming `setTimeout` that fires at the exact wake-up time (`loadSnooze().until - Date.now() + 250ms grace`) and re-runs the same refresh that the events use. Capped at 24h to avoid `setTimeout`-overflow on long snoozes; the next event-driven refresh re-arms closer to expiry. Cleared on unmount.
+  - fix: f0666d7 · https://github.com/landon-personal/gradeguardnewsync/commit/f0666d7
+
+---
+
 ## [Unreleased] — 2026-05-03 08:08 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
