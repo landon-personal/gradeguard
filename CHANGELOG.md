@@ -6,7 +6,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/), and this pro
 
 ---
 
-## [Unreleased] — 2026-04-26 (afternoon shift)
+## [Unreleased]
+
+### 2026-05-03 10:04 UTC shift — Web only (auto-synced to gradeguard.org)
+
+#### Added (web)
+- **`WeekAheadStrip` on the dashboard** — a compact, 7-day at-a-glance grid that sits between the AI Plan section and the Mood/Focus row. Each day shows the day name (Today / Tmrw / weekday), date, and 1–3 colored dots for items due that day (orange = test, urgency-tinted hue for assignments). Click a day to expand it inline and see the actual list of items, with total estimated minutes if `time_estimate` is set on the assignments. Click an item to jump to the Assignments or Tests page. Renders nothing if no pending work in the next 7 days. **Why:** the dashboard already shows "what to do today" via the AI plan, but a student had no fast way to spot a brutal Wednesday or a quiet Friday two days out — this gives them a high-level view of the week's shape without leaving home.
+
+#### Fixed (web)
+- **`StudyAssistant`** — wrapped 4 critical AI/upload call sites in `try/catch/finally` + double-submit guards: `generateFlashcards`, `generateQuiz`, `handleQuizResults` post-quiz feedback, `sendMessage` (the main chat), and `handleFileAttach`. Previously every one of these left the chat stuck on "Loading…" if the underlying call threw — particularly bad because these are the central features of the AI tutor. Each now also clears the AI-job poller and stage indicators on failure.
+- **`Onboarding.saveProfile`** — wrapped the entire multi-await final-step flow in `try/catch/finally` + double-submit guard + a visible error message under the "Finish Setup" button. A transient error during onboarding's last step used to leave new sign-ups stuck on "Setting up..." with no recovery — the worst possible first impression for a school admin evaluating GradeGuard.
+- **`AIAssignmentChat.send`** — wrapped the LLM call in `try/catch/finally`. Also wrapped the `JSON.parse` of the `ASSIGNMENTS_READY` block in its own try so a malformed payload now produces a friendly chat message asking the student to retry, instead of crashing the dialog.
+- **11 `useMutation` calls across 5 files now have `onError` handlers** — Assignments / Tests / AdminDashboard each had three (create, update, delete) with no error handler; Friends had two unhandled (copy-assignment, copy-test); FlaggedMessagesPanel had one (status update). Each gets `console.error` + `toast.error` with a clear "Couldn't … please try again" message. **Why:** a failed delete used to leave the row visible with no feedback; a failed create silently dismissed the form as if it had succeeded.
+- **`WeeklySummaryButton.handleSend`** — wrapped in `try/catch/finally` + double-submit guard. Previously the "Generating & sending…" button could spin forever if the function-invoke threw.
+- **`MoodCheckIn`** — guarded `JSON.parse` of the saved-mood `localStorage` entry. A corrupted value used to throw on mount and break the dashboard's mood row. Also stripped ~50 trailing blank lines from the file.
+- **`InviteLinkButton`** — `navigator.clipboard.writeText` could throw and crash the click handler with no feedback; now wrapped with a `toast.error` fallback. The "Copied" timer is also tracked in a ref + cleaned up on unmount, avoiding a setState-on-unmounted React warning when the parent disappears mid-flash.
+
+#### Chore (web)
+- Removed 30 unused imports across 18 files via `npm run lint:fix`.
+
+### 2026-04-26 (afternoon shift)
 
 Pushed straight to the web app (`base44dev/grade-guard`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
 
