@@ -17,6 +17,34 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-03 14:09 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Subtasks v4: Quick-start templates 1-tap process scaffolding ✨📋
+
+- **`src/lib/assignmentSubtasks.js`** + **`src/components/assignments/AssignmentSubtasks.jsx`** + **`src/components/assignments/AssignmentCard.jsx`** + **`src/pages/FocusTimer.jsx`** — closes the multi-shift "students stare at the empty Subtasks panel and don't know how to break the assignment down" gap. The empty state of every assignment's Subtasks panel now exposes a 1-tap **Quick-start** chip auto-detected from the assignment name (essay, test prep, lab, problem set, presentation, reading, project), plus a "Templates" toggle that reveals the full picker for cases the auto-detect misses.
+- **8 templates** — each is a list of generic, action-shaped step labels for the *process* of getting the work done, not the work itself:
+  - **Essay / paper** (essay/paper/report/composition/write-up): Plan ideas → First draft → Revise → Final read-through
+  - **Test / quiz prep** (test/quiz/exam/midterm/final/assessment/study): Review notes → Practice problems → Self-quiz → Final review
+  - **Lab** (lab/experiment/dissection): Read procedure → Run experiment → Record data → Write up findings
+  - **Problem set / homework** (problem set/worksheet/homework/hw/practice/exercises/pset): Read all prompts → Attempt every problem → Check answers → Redo wrong ones
+  - **Presentation** (presentation/slides/speech/talk/pitch/powerpoint/deck): Outline points → Build slides → Practice run → Polish
+  - **Reading** (reading/chapter/article/textbook/novel/book): Skim → Read closely → Take notes → Quick recap
+  - **Project** (project/build/prototype/create/make/design): Plan milestones → Build it → Polish → Submit
+  - **Generic** (no-match fallback): Plan → Work → Review → Submit (only surfaced from the picker, never as a 1-tap suggestion — would just be noise)
+- **Why a student notices it:** the dominant "I don't know where to start" failure mode for a multi-day assignment was a blank Subtasks panel and a tiny "+ Break into steps" link. Now an assignment named "AP Bio Lab Report — Photosynthesis" surfaces a single tap that drops in the 4-step lab template; the student can rename, reorder, drop time estimates, and check off as they go using the existing Subtasks v3 controls. For the cases the regex misses, the "Templates" toggle reveals the full picker — the auto-detected one is highlighted so the student can still 1-tap it from there.
+- **Safety**: pure process scaffolding — no thesis statements, topic sentences, evidence ideas, paragraph plans, or any other writing content. Stays well clear of the rejected "essay outliner" pattern (the labels for the essay template are deliberately generic verbs: "Plan ideas / First draft / Revise / Final read-through" — they're a *time-budgeting checklist*, not a writing aid).
+- **Belt-and-suspenders**: `applySubtaskTemplate` refuses to overwrite a non-empty list — UI already gates on `items.length === 0`, but the lib double-checks so a future caller can't accidentally wipe a student's hand-written checklist by tapping a template chip.
+  - feat: 5bb0801 · https://github.com/landon-personal/gradeguardnewsync/commit/5bb0801
+
+### Fixed (web) — `ChromeExtensionNudge` had no Esc-to-dismiss + no backdrop-click-to-dismiss
+
+- **`src/components/ChromeExtensionNudge.jsx`** — the "You're on a roll!" Chrome-extension prompt that fires on the 5th completed assignment was the only modal in the app without either Escape or backdrop-click dismissal. A student tapping it by accident — or who simply doesn't want to think about extensions mid-flow — had to find the small ✕ in the corner or the "Maybe later" link to escape. Now: window keydown listener for Escape (cleared on unmount); `onClick={onClose}` on the backdrop with `stopPropagation` on the dialog; `role="dialog"` / `aria-modal="true"` / `aria-label` for screen-reader parity with the rest of the app's modal dialogs.
+  - fix: 09e6ca7 · https://github.com/landon-personal/gradeguardnewsync/commit/09e6ca7
+
+---
+
 ## [Unreleased] — 2026-05-03 12:19 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
