@@ -17,6 +17,52 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-03 04:26 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Subtasks bundle: drag-to-reorder + "mark complete?" prompt + dashboard progress chip ✅
+
+- **`src/lib/assignmentSubtasks.js`** + **`src/components/assignments/AssignmentSubtasks.jsx`** + **`src/components/assignments/AssignmentCard.jsx`** + **`src/pages/FocusTimer.jsx`** + **`src/components/dashboard/TodoItemCard.jsx`** + **`src/components/dashboard/TodaysFocusCard.jsx`** — closes prior shift's "what I didn't get to" #12 (mark-complete prompt), #13 (dashboard subtask progress), #14 (drag-reorder). Three coordinated improvements to the per-assignment Subtasks feature shipped two shifts ago:
+  - **Drag-to-reorder steps** via `@hello-pangea/dnd` (already a dep). Drag handle (`GripVertical`) renders only on row hover and only when there's >1 step (pointless for a 1-item "list"). Reorder writes through the same `persist()` path that fires the cross-tab `gg-assignment-subtasks-changed` CustomEvent so the new order shows up in another open tab without a remount. New lib export `reorderSubtasks(id, fromIndex, toIndex)` does the splice + persist.
+  - **"Mark this assignment as completed?" prompt** appears above the steps list when all steps are done AND total ≥ 2 AND the parent card wired up an `onAllDone` handler. Yes / Not yet — "Not yet" dismisses for the session (re-renders won't flash it again). On AssignmentCard, `onAllDone → onStatusChange(id, 'completed')` so the existing `/Assignments` mutation pipeline does the persistence + optimistic cache update + toast. On FocusTimer, `onAllDone → handleAssignmentAllDone` which optimistically clears `selectedAssignment`, fires `secureEntity('Assignment').update(id, { status: 'completed' })`, invalidates the focus-page assignments query, and rolls back `selectedAssignment` on failure. Lets a student finish the last step from inside a Pomodoro and mark the assignment complete without navigating to `/Assignments`.
+  - **Subtask progress chip** on `TodoItemCard` (the dashboard's prioritized "do this next" rows) and `TodaysFocusCard` (the dashboard's most-urgent banner): small `ListChecks 2/5 ✓` chip when subtasks exist for the row's assignment. Emerald + ✓ at 100%, indigo otherwise. Both listen for `gg-assignment-subtasks-changed` + the native `storage` event so a tick from `/Assignments` or `/FocusTimer` updates the dashboard chip live without a remount. Skipped for `test_study` rows (their `source_id` maps to a test, not an assignment).
+- **Why a student notices it:** subtasks become a real planning tool instead of a static list. They can sequence the "easy starter" step to the top, the dashboard surfaces "you're 3/5 done on Algebra HW" without expanding anything, and finishing the last step inside a focus session offers a one-tap completion instead of yet another navigation.
+  - feat: 19158e4 · https://github.com/landon-personal/gradeguardnewsync/commit/19158e4
+  - feat: a416e78 · https://github.com/landon-personal/gradeguardnewsync/commit/a416e78
+
+### Added (web) — Per-subject Class Notes surfaced inside FocusTimer mid-session 📒
+
+- **`src/components/dashboard/SubjectNotesInline.jsx`** (new) + **`src/pages/FocusTimer.jsx`** — closes prior shift's "what I didn't get to" #11. Per-subject Quick Notes (the scratchpad shipped two shifts ago — formulas, vocab, "what the teacher said") were only viewable inside `SubjectDetailModal` from the dashboard. A student studying Math who wanted to glance at their Math notes had to navigate away from the focus timer. Now a compact view-only viewer renders below the Subtasks panel whenever an assignment / test with a `subject` is selected and `mode === "work"`. Auto-hides when there's no saved note for the subject. Listens for the existing `gg-subject-notes-changed` CustomEvent + the native `storage` event so a save in another open `SubjectDetailModal` surfaces here without a remount. Editing is intentionally not duplicated — `SubjectDetailModal` owns the canonical editor (autosave + clear + character counter + saved-flash); two save paths on the same data is a footgun.
+  - feat: 38d5c5f · https://github.com/landon-personal/gradeguardnewsync/commit/38d5c5f
+
+### Added (web) — `WorkloadForecast` bar heights now use `time_estimate`
+
+- **`src/components/dashboard/WorkloadForecast.jsx`** — closes prior shift's "what I didn't get to" #6. The 14-day forecast was scoring 1.0 per assignment + 0.5 if `weight === "perform"` + 0.3 if `difficulty === "hard"` — flat per-item, never reading `time_estimate`. Now that the prior shift exposed `time_estimate` as a 1-tap inline pill on `AssignmentCard` (instead of a buried form field), real student-supplied minutes drive the forecast: base load = `time_estimate / 30` (so 30 min = 1.0, 60 min = 2.0, 15 min = 0.5), falling back to the prior flat 1.0 when no estimate exists. Calibrated to the existing `bandFor` thresholds so a single 60-min assignment now correctly crosses into "moderate" instead of staying "light", and a 120-min assignment crosses into "heavy". Modifiers (`perform` / `hard`) still bump on top — a hard 60-min essay deserves more headroom than an easy 60-min reading. No change to test load (no `prep_time_estimate` field on Test yet).
+  - feat: 19fddea · https://github.com/landon-personal/gradeguardnewsync/commit/19fddea
+
+### Fixed (web) — `Assignments`/`Tests` ESC handler closed the form even when Radix swallowed the key
+
+- **`src/pages/Assignments.jsx`** + **`src/pages/Tests.jsx`** — closes prior shift's "what I didn't get to" #17. Both pages had global window keydown handlers that fired `setShowForm(false)` on every Escape regardless of (a) whether the form was open, (b) whether a Radix `AlertDialog` / `Select` / `Dialog` had already handled the key. Radix usually stops propagation, but for `AlertDialog` confirmation flows and some custom Popover content the keystroke can bubble through with `defaultPrevented` set. Result: pressing Esc inside an open Radix dialog could simultaneously close that dialog AND close the assignment/test form behind it. Two guards: bail on `e.defaultPrevented` and only act when `showFormRef.current` is truthy.
+  - fix: 56871f8 · https://github.com/landon-personal/gradeguardnewsync/commit/56871f8
+
+### Fixed (web) — `AssignmentSnoozeButton` 60s tick ran on backgrounded tabs
+
+- **`src/components/assignments/AssignmentSnoozeButton.jsx`** — closes prior shift's "what I didn't get to" #3. The auto-expire tick fired regardless of `document.hidden` — modern browsers throttle to 1 min minimum so the cost was small, but a backgrounded tab still woke up every minute to do nothing useful. Refactored to start the interval only when visible, stop it on `visibilitychange → hidden`, and re-derive the snooze state on every `visibilitychange → visible` so a snooze that wakes up while the tab is hidden auto-clears the instant it returns to the foreground (instead of waiting up to a minute for the next tick).
+  - fix: 56871f8 · https://github.com/landon-personal/gradeguardnewsync/commit/56871f8
+
+### Fixed (web) — `SubjectDetailModal` showed snoozed pending assignments without any indicator
+
+- **`src/components/dashboard/SubjectDetailModal.jsx`** — closes prior shift's "what I didn't get to" #5. The per-subject detail modal lists every pending assignment for that subject (it's the "all the work for this subject" view, by design includes snoozed). But snoozed rows rendered with the same urgency tint as active ones — overdue snoozed showed in rose with the "(2d late)" warning, due-today snoozed showed in amber. A student who snoozed a row to "deal with it Wednesday" reopened the modal and saw the same nag they were trying to escape. Each pending row now reads `isAssignmentSnoozed(a.id)` into `_snoozed` and renders the snoozed treatment (amber-50/60 background + 75% opacity + leading 💤 emoji + amber day-label, no AlertTriangle, no "(Nd late)" suffix).
+  - fix: d24637a · https://github.com/landon-personal/gradeguardnewsync/commit/d24637a
+
+### Fixed (web) — `AdminDashboard.handleSubmit` had no double-submit guard
+
+- **`src/pages/AdminDashboard.jsx`** — closes prior shift's "what I didn't get to" #14. Submit button was correctly disabled while `createMutation`/`updateMutation` was pending, but pressing Enter inside any form input fires `<form onSubmit>` regardless of button state. Two quick Enters before the first response landed could create two schools (or fire two updates and trigger a spurious "school code already in use" error). Added `if (createMutation.isPending || updateMutation.isPending) return;` at the top of `handleSubmit`.
+  - fix: 9c5bcc6 · https://github.com/landon-personal/gradeguardnewsync/commit/9c5bcc6
+
+---
+
 ## [Unreleased] — 2026-05-03 02:11 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
