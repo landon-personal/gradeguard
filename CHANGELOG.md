@@ -17,6 +17,47 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-03 00:10 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Assignment Snooze 💤
+
+- **`src/lib/assignmentSnooze.js`** (new) + **`src/components/assignments/AssignmentSnoozeButton.jsx`** (new) + **`src/components/assignments/AssignmentCard.jsx`** + **`src/pages/Assignments.jsx`** + **`src/pages/Dashboard.jsx`** + **`src/components/notifications/useNotifications.jsx`** + **`src/components/notifications/NotificationBell.jsx`** + **`src/components/dashboard/SubjectGoalsStrip.jsx`** — Gmail-style snooze on a per-assignment basis. Lets a student park an assignment they aren't ready to look at right now (mid-week project that's not due until Friday, the lit-circle book that just sat down a list, anything that clutters their list and makes them feel guilty) without deleting it or marking it `in_progress` they're not actually working on. Snoozed assignments come back automatically once the snooze expires.
+- **What changed:**
+  - New `AssignmentSnoozeButton` next to the time-estimate row on every active `AssignmentCard`. Idle state: a thin "Snooze" trigger with a Clock icon. Tap → dropdown with four presets: **Later today (+3h)**, **Tomorrow morning** (next-day 7am local — students mean "before school", not literally +24h), **In 2 days**, **Next Monday**.
+  - Picked state: the trigger swaps to an amber pill — `Snoozed until tomorrow 7:00 AM · wake` — that toasts "Snoozed until …" on creation. Tapping `wake` clears the snooze and toasts "Snooze cleared — back on the list".
+  - The card itself dims slightly with an amber-50 background when snoozed (status of completed still wins for visual hierarchy).
+  - `/Assignments` adds a new `💤 N snoozed · view` filter chip alongside Due-today / Overdue. Default behavior: snoozed pending rows are hidden from the Pending grid; tapping the chip toggles them back in (still styled dimmed by the card). Active counts in the page header (`N pending · M completed`) reflect the filtered list. Drag-to-reorder still works — saved IDs hidden by snooze stay in `manualOrder` so toggling visibility doesn't drop them.
+  - Dashboard treats snoozed assignments as not-currently-on-my-plate: `pendingAssignments`, `overdue`, the "Pending" header stat, the AI study plan signature/regeneration, `TodaysFocusCard`, `EstimatedWorkload`, and `WorkloadForecast` all skip snoozed rows. Auto-recovers when the snooze expires (60-second tick re-derives the visible set without a page reload).
+  - Notification system honors snooze: `NotificationBell`'s red-dot upcomingCount and `useNotifications`'s push-reminder loop both filter snoozed out so the snooze isn't undermined by an OS push or a header badge for the parked item.
+  - `SubjectGoalsStrip` Suggest button skips snoozed when picking the lowest-pct subject's first pending assignment, so a student who snoozed everything in a behind-on-Math subject doesn't get the snoozed row dropped into a focus session.
+- **Storage:** `localStorage` keyed by assignment id (`gg_assignment_snooze_<id>` → `{ until: ISO, ts: ISO }`). Same defensive read/write posture as `assignmentSubtasks.js` and `testPrepChecklist.js` — Safari Private mode / sandboxed iframes throw on every storage call; those throws fall through to "not snoozed" rather than crashing. Auto-expires on read: any entry whose `until` has passed is removed and treated as not snoozed. CMS posture: client-side only, no PII, never sent off-device.
+- **Cleanup:** `Assignments.deleteMutation.onSuccess` now also calls `clearSnooze(id)` so a deleted assignment's snooze entry doesn't orphan (matches the `clearSubtasks` cleanup pattern shipped alongside subtasks).
+- **Cross-tab + same-tab sync:** dispatches `gg-assignment-snooze-changed` CustomEvent on every change + listens for the native `storage` event keyed by `gg_assignment_snooze_*`. Two open `/Assignments` tabs stay coherent — snoozing a row in one tab dims it and updates the chip count in the other. Same posture as `assignmentSubtasks`.
+- **Auto-wake:** `AssignmentCard`, `AssignmentSnoozeButton`, `/Assignments`, and `Dashboard` each tick once a minute (and on the cross-tab event) to re-derive snooze state, so a snooze that expires while a tab is open pops the assignment back into view without a refresh.
+- **Why a student notices it:** the assignment list stops being a guilt-pile of things they're avoiding. "I'll deal with this Wednesday" becomes a one-tap action that actually hides the row, doesn't pretend the student is working on it, and re-surfaces it automatically. The Pending / Overdue / Due-today counts and the AI plan also stop nagging about the parked item, which is what makes the snooze feel real instead of cosmetic.
+  - feat: e4736cd · https://github.com/landon-personal/gradeguardnewsync/commit/e4736cd
+
+### Fixed (web) — `AssignmentCard` inline grade-entry pill was defined but never rendered
+
+- **`src/components/assignments/AssignmentCard.jsx`** + **`src/pages/Assignments.jsx`** — the `GradeEntry` sub-component (the "Add grade" / "B+ · A" pill that opens an inline input) and the `onGradeUpdate` prop have existed in `AssignmentCard` since the file was first added, but the JSX never rendered the component and `/Assignments` never passed an `onGradeUpdate` callback. Result: the only way to record a grade on a completed assignment was to tap the Pencil icon → reopen the entire AssignmentForm modal → fill in `Grade Received` → Save. The inline-on-card UX was 80% finished and stuck in a drawer.
+  - Rendered `GradeEntry` next to the status select on completed cards. Validates input via `gradeToPercent` (already existed), shows the colored letter pill on save.
+  - Added `handleGradeUpdate` on `/Assignments` that optimistically updates the React Query cache (so `GradeStats`, `GradeGoalCalculator`, `SubjectGradeGoalsStrip` recompute live) and persists via `updateMutation`. Wired into all three `AssignmentCard` callsites (manual-order draggable, default grid, completed grid).
+  - fix: 33ba953 · https://github.com/landon-personal/gradeguardnewsync/commit/33ba953
+
+### Fixed (web) — Notifications fired for snoozed assignments
+
+- **`src/components/notifications/NotificationBell.jsx`** + **`src/components/notifications/useNotifications.jsx`** — `NotificationBell`'s red-dot upcomingCount and `useNotifications`'s push-reminder loop both treated snoozed assignments as still-active. A student who snoozed an assignment was still nagged about it via the bell counter and a system-level push when the reminder window hit, defeating the entire point of the snooze. Both now filter out anything where `isAssignmentSnoozed(a.id)` is true; the dot/push come back automatically when the snooze expires.
+  - fix: 41fa671 · https://github.com/landon-personal/gradeguardnewsync/commit/41fa671
+
+### Fixed (web) — `SubjectGoalsStrip` Suggest could pick a snoozed assignment
+
+- **`src/components/dashboard/SubjectGoalsStrip.jsx`** — the Suggest button (rendered when at least one subject is under its weekly minutes goal) finds the most-behind subject's first non-completed assignment and hands it to the parent for a focus-session deep-link. The lookup didn't filter snoozed, so a student who'd snoozed everything in their behind-on-Math subject would still get a snoozed row dropped into a focus session. Filter snoozed out so Suggest either finds a real candidate or falls through to the "no pending {subject} assignments" toast the parent already handles.
+  - fix: 4a611ac · https://github.com/landon-personal/gradeguardnewsync/commit/4a611ac
+
+---
+
 ## [Unreleased] — 2026-05-02 22:16 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
