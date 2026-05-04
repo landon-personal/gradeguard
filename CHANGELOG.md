@@ -17,6 +17,31 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-04 12:05 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Per-test "Review N due" deep-link on TestCard + working `?tool=flashcards` URL ⏰📇
+
+- **`src/components/tests/TestCard.jsx`** + **`src/pages/Tests.jsx`** + **`src/pages/StudyAssistant.jsx`** + **`src/components/assistant/FlashcardViewer.jsx`** — surfaces the spaced-repetition schedule **outside** the FlashcardViewer itself. A student who opens `/Tests` now sees an amber **"Review 5 due"** pill right on the test row when their saved deck has cards whose Leitner interval has elapsed — one tap straight into the saved deck in spaced-rep Due-only filter mode (no LLM call, mastery cardIds preserved). When nothing is due, the existing Flashcards button picks up an "X/Y mastered" pill so the deck's progress is visible at a glance without opening it. **Why:** the spaced-rep schedule was completely invisible from the Tests page — a student who hasn't opened a particular deck for 3 days had to first navigate into the StudyAssistant and click Flashcards to see "5 due"; now the signal is on the card row they're already looking at. Closes the **"Per-deck due-count badge on TestCard / Tests page"** item flagged in shift report #92.
+- **Also wires up the long-broken `?tool=flashcards&testId=<id>` deep link.** The auto-launch state was declared in StudyAssistant (`autoFlashcardsHandled`) but never read by any effect — only the QUIZ deep-link had a corresponding handler. So tapping "Flashcards" on TestCard navigated to /StudyAssistant and dropped the student on the empty home screen with no flashcards loaded — they had to manually find the test in the SuggestionChips or NonPremiumTestTools panel and click Flashcards there. Now: prefers the saved deck (instant, free, mastery cardIds intact), falls back to LLM generation when no saved deck exists. New `?due=1` flag boots the FlashcardViewer in spaced-rep Due filter mode — the deep-link target for the new TestCard pill.
+- **`initialFilter` prop on FlashcardViewer.** Honored on mount and on `testName` change so re-routes into the same viewer with a different `?due=1` flag actually flip the filter. The existing empty-filter useEffect catches the edge case where `?due=1` is passed but no cards are actually due (e.g. all marks rolled to unseen between the tap and the auto-launch) — gracefully falls back to all-cards mode instead of rendering an empty deck.
+- **Live badge.** `TestCard` reads its saved deck + mastery state and refreshes the badge on `storage` events from any flashcard surface (mark a card mastered in another tab → badge here updates without remount). Self-rescheduling tick at the next local midnight so a card whose schedule rolls over while the page is open updates automatically; the cleanup picks up the latest tickId via let-bound capture so the recursive scheduling doesn't leak timers.
+- **Safety.** Pure localStorage reads. No card content or test name leaves the browser. Same defensive read posture as the rest of the flashcard code path.
+  - feat: 13e14d2 · https://github.com/landon-personal/gradeguardnewsync/commit/13e14d2
+
+### Fixed (web) — `SavedDecksPanel` cross-tab refresh on flashcard storage events
+
+- **`src/components/assistant/SavedDecksPanel.jsx`** — the panel re-read localStorage only when the parent bumped its `version` counter (after save / delete in the same tab). A student with two GradeGuard tabs open who saved a deck or marked a card mastered in tab A would see tab B's panel keep the stale list / mastered-% / due-count chips until remount. Closes the cross-tab sync follow-up flagged in shift report #93. **Fix:** internal storage-bump counter so writes to any `gg_flashcard_deck_*`, the deck index, or any `gg_flashcard_mastery_*` key from another tab refresh the deck list and the per-deck chips. Same shape as the listener pattern already in `PomodoroSubtaskMini` and the new `TestCard` due-count badge.
+  - fix: 984da01 · https://github.com/landon-personal/gradeguardnewsync/commit/984da01
+
+### Fixed (web) — `TestCard` saved-deck due-count badge stuck across midnight rollover
+
+- **`src/components/tests/TestCard.jsx`** — the new "Review N due" badge effect set a single `setTimeout` to refresh at the next local midnight, but didn't self-reschedule. A student who left `/Tests` open across two wall-day rollovers would see the badge stick on yesterday's count — every card that became due overnight on day 2 would only surface after a remount. **Fix:** recursive scheduling inside the `refresh` fn (same shape as the dashboard `clockTick` pattern). The cleanup capture switches to a let-bound `tickId` so the stale closure doesn't try to clear the first timer when the second one is what's actually pending.
+  - fix: 9025390 · https://github.com/landon-personal/gradeguardnewsync/commit/9025390
+
+---
+
 ## [Unreleased] — 2026-05-04 10:22 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
