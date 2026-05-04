@@ -17,6 +17,28 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-04 10:22 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Persisted flashcard decks + "My Decks" panel on StudyAssistant 📇♻️
+
+- **`src/lib/flashcardDecks.js`** (new) + **`src/components/assistant/SavedDecksPanel.jsx`** (new) + **`src/pages/StudyAssistant.jsx`** — closes the loophole that made the spaced-repetition feature shipped two shifts ago hollow in practice. The mastery layer is keyed by `(testName, cardId hash of front+back)` — but the StudyAssistant generated a **fresh AI-written deck on every "Flashcards" click**. So a card mastered today and theoretically "due in 1 day" was unlikely to come back tomorrow under the same wording: the cardId hash diverged, the new card was treated as unseen, and the schedule silently zeroed out. The "Got it" tap had no durable consequence beyond the current session.
+- **What changed.** When a generation completes, the actual cards are now persisted to `gg_flashcard_deck_<deckKey>` alongside the existing mastery state. A new `SavedDecksPanel` shows up on the StudyAssistant empty state, listing every saved deck newest-first with mastered % and a per-deck due-now count. The panel's headline reads **"N cards due across your decks"** when anything is due — a one-glance signal that nudges the student into a refresher session before they pick a new test. Tapping a deck re-opens it instantly with the cached cards (zero LLM call, zero cost, same cardId hashes → mastery state intact).
+- **Three new lib helpers.** `saveDeckCards(testName, cards, { subject })` writes the deck alongside an updated `gg_flashcard_deck_index` (keys-list for listSavedDecks). `loadDeckCards(testName)` reads + sanitizes one deck. `listSavedDecks()` returns all saved decks newest-first, dropping stale/corrupted index entries silently. `deleteSavedDeck(testName)` for the panel's per-deck delete affordance.
+- **Storage hygiene.** 50-deck cap with newest-first eviction (oldest decks roll off when the cap is hit, freeing up storage so a heavy user doesn't pin localStorage), 200-cards-per-deck cap (mirrors the existing mastery cap so the two layers can't drift), well-formed-only writes (cards without `front`/`back` strings are filtered before save), Safari-Private + corrupted-JSON read guards on every read (matches the rest of the lib's posture). The `deckKeyFor` sanitizer matches the one in `flashcardMastery` so saved decks line up with their mastery state under the same key.
+- **Why a student notices it:** the spaced-rep promise was "your mastered cards come back on a schedule" — but the schedule only fired when the actual cards came back. Before this shift, opening flashcards a day later regenerated a different deck and the mastery state was inert. Now: same deck, same cards, mastery streak intact, "1 card due" badge on the deck in My Decks. The first time a student returns to the StudyAssistant the next day and sees "3 cards due across your decks" with a one-tap path into the right deck, the spaced-rep system finally pays off.
+- **Safety.** Pure client-side localStorage. No card content / deck name leaves the browser. Same defensive read/write posture as `flashcardMastery.js` (every read wrapped, corrupted entries auto-clear instead of crashing the panel).
+- **No-PII reassurance footer** in the panel: "Saved on this device. No card content leaves your browser." — visible to students using their own laptops on shared school accounts.
+  - feat: 32045ea · https://github.com/landon-personal/gradeguardnewsync/commit/32045ea
+
+### Fixed (web) — Delete-test cleanup leaked the new saved flashcard deck
+
+- **`src/pages/Tests.jsx`** — caught immediately while reviewing my own feature. Deleting a test runs a cleanup pass that drops the orphan `gg_flashcard_mastery_<name>`, `gg_test_confidence_<id>`, `gg_test_reflection_<id>`, `gg_test_plan_offset_<id>`, and `gg_test_prep_<id>` localStorage entries — but the new `gg_flashcard_deck_<name>` saved-cards entry wasn't on the cleanup path. A deleted test would keep showing up in the new "My Decks" panel under its old name with stale cards. Now the saved deck is dropped alongside the mastery entry.
+  - fix: 3674543 · https://github.com/landon-personal/gradeguardnewsync/commit/3674543
+
+---
+
 ## [Unreleased] — 2026-05-04 08:25 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
