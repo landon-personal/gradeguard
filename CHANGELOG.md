@@ -17,6 +17,37 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-04 04:12 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — `PomodoroTimer` subtask checklist on the dashboard widget ✅⏱️
+
+- **`src/components/dashboard/PomodoroSubtaskMini.jsx`** (new) + **`src/components/dashboard/PomodoroTimer.jsx`** — closes the "PomodoroTimer ↔ Subtasks integration" backlog item flagged across shift reports #84, #87, #88, #89, and #90. The dashboard Pomodoro panel now embeds a compact read-mostly subtask checklist for the active assignment whenever `mode === "work"` and the assignment has at least one not-yet-done step. Mirrors what the `/FocusTimer` page already shows under its dial (the full `AssignmentSubtasks` panel) but in a smaller widget-shaped form: toggle-only edit affordance, no rename/reorder/time-tagging — those stay on the canonical /Assignments panel so the dashboard widget stays small.
+- **Compact display.** Up to 4 unchecked items first + 1 done item if room + a "+N more steps on /Assignments" footer when the panel can't fit them all. Header chip reads "Steps · X/Y · ~N min left" (reuses `remainingMinutesFor` from the existing subtasks lib). Per-step minutes pill (when the student set one) shows on the right edge of unchecked rows. Subject color flows through (`PomodoroSubtaskMini` receives the same tint the activeTask pill uses) so a Math session's checklist accent matches the rest of the Math UI.
+- **Auto-hides** when the assignment has no subtasks or every item is done — gives a clean "ready to wrap up" state instead of a static "✓ all checked" panel taking dashboard real estate. Hidden on breaks (work-mode gate matches the FocusTimer page convention).
+- **Cross-surface sync.** Listens for the existing `gg-assignment-subtasks-changed` CustomEvent (same-tab edits from anywhere — including the canonical `AssignmentSubtasks` panel on /Assignments) + cross-tab `storage` events scoped to that one assignment's key. Toggling from the dashboard mini-panel calls `toggleSubtask` from the existing lib, which dispatches the same event — so a /Assignments tab open in a side window reflects the tick instantly, and vice versa.
+- **Why a student notices it:** before this, a student running a 25-min Pomodoro on an assignment with 5 subtasks had to tab over to /Assignments (or expand the assignment card) to tick a step off, breaking flow every time. Now the steps are right under the timer dial — one tap, no navigation. The "Steps · 2/5 · 30 min left" header doubles as a glanceable progress signal during the session.
+- **Safety**: pure client-side localStorage, same shape every other subtask consumer already walks. No PII off device.
+  - feat: 18c6667 · https://github.com/landon-personal/gradeguardnewsync/commit/18c6667
+
+### Fixed (web) — `PomodoroTimer` "X done" counter restarted at 0 every dashboard mount
+
+- **`src/components/dashboard/PomodoroTimer.jsx`** — closes the polish item flagged in shift report #88. The in-page `sessions` counter (which feeds both the "X done" text and the 4-pip cycle-dot pattern) was sourced exclusively from sessionStorage. Browser close, tab close, or any nav that unmounts the widget through the lazy-route boundary would reset it to 0 even mid-day. A student who finished 3 work blocks at 9 AM, closed the laptop, and reopened the dashboard at 1 PM saw "0 done" — and worse, completing a 4th would put them at "1 done" on the dot strip and miss the long-break-on-4 trigger that the actual session count would have hit.
+- **Three coordinated changes.**
+  1. New `todaysWorkSessionCount()` helper reads `gg_focus_sessions_<localdate>` and counts `mode === "work"` rows. Same defensive read posture as every other gg_focus_sessions_* reader (private mode / quota / corrupted blob → 0).
+  2. `sessions` initial state is now `max(saved.sessions, todaysPersisted)` — surviving sessionStorage state still wins when it's larger (covers the rare delete-from-FocusSessionHistoryModal-between-sessions case), but a fresh mount re-derives from the canonical persisted count.
+  3. New listener effect re-syncs on `gg-focus-session-recorded` (fires from the FocusTimer page completion + this widget's own advance() write + any future surface) and on cross-tab `storage` events for `gg_focus_sessions_*`. Functional `max()` floor protects against ever decreasing past a local in-flight advance() count. Midnight rollover resets to 0 so a new local day starts fresh without waiting for the next session.
+- The long-break-on-4 cycle (`newSessions % 4 === 0 ? 'longBreak' : 'shortBreak'`) now follows real today-session count, which is what the Pomodoro Technique actually calls for ("every 4 work blocks = long break, daily").
+  - fix: 8fa0300 · https://github.com/landon-personal/gradeguardnewsync/commit/8fa0300
+
+### Removed (web) — `PomodoroWidget.jsx` orphan dead-code parallel widget
+
+- **`src/components/dashboard/PomodoroWidget.jsx`** — same shape as the `FloatingPomodoro.jsx` deletion in shift #88 and the `StudySchedule.jsx` deletion in shift #90. 350-line parallel implementation of the same dashboard timer feature already provided by `PomodoroTimer.jsx`. `grep -rn 'PomodoroWidget'` shows zero imports anywhere in the tree — only its own file definition and one historical comment reference (kept since it's documentary, not a runtime import). Layout.jsx mounts `dashboard/PomodoroTimer` as the rendered widget; this Widget never had a wire-up. Orphan parallel implementations are a footgun for a future shift to accidentally edit (which I almost did this shift before catching the import check). Git history preserves the implementation if a future shift wants to revisit. -350 lines of unreachable code.
+  - chore: 8181381 · https://github.com/landon-personal/gradeguardnewsync/commit/8181381
+
+---
+
 ## [Unreleased] — 2026-05-04 02:24 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
