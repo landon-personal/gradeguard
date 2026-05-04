@@ -17,6 +17,34 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-04 20:20 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Daily flashcard review streak across all decks 🔥
+
+- **`src/lib/flashcardReviewStreak.js`** (new) + **`src/lib/flashcardMastery.js`** + **`src/components/dashboard/FlashcardReviewMini.jsx`** + **`src/components/assistant/SavedDecksPanel.jsx`** + **`src/components/assistant/FlashcardViewer.jsx`** + **`src/components/assistant/CrossDeckReview.jsx`** — sibling motivator to the assignment-completion streak surfaced in `FloatingStreakCounter`. That one rewards finishing schoolwork; this one rewards **showing up for spaced repetition**, which only works if a student actually does the daily reps. **Why a student notices it:** the spaced-rep ladder shipped over the last 8 shifts (Leitner intervals, persisted decks, dashboard due-queue, cross-deck refresher) finally has a daily compounding-progress signal — a flame chip with the day count appears on the dashboard mini, the Saved Decks panel header, and the wrap-up screen of every review session, so a student sees "5-day review streak" the moment they finish a session.
+- **What changed.** New `flashcardReviewStreak.js` lib stamps a YYYY-MM-DD entry to `gg_flashcard_review_days` (single localStorage key, capped at 366 entries — one calendar year of history) on every "Got it" / "Need review" mark across any deck. Idempotent — marking 50 cards in a session adds one entry, not 50. `recordCardMastery` calls into it inside a try/catch so streak bookkeeping can never break a mastery write.
+- **Streak rule** mirrors the assignment streak (`calcStreak`): if today has activity, count from today; else if yesterday has activity, count from yesterday (a streak survives until midnight passes a second time without activity). Otherwise streak = 0.
+- **`FlashcardReviewMini` header** shows a flame chip with the day count and a today-vs-pending color (orange = logged today, amber = streak alive but not yet logged today). When `totalDue=0` BUT `streak>0`, render a slim "caught up — extend tomorrow" pill instead of nothing — preserves the daily-rep reward signal without nagging students who haven't generated decks yet (those have `streak=0` and stay hidden).
+- **`SavedDecksPanel` header** gets the same flame chip alongside the existing "due" pill.
+- **`FlashcardViewer` + `CrossDeckReview` wrap-up screens** surface a centered `{N}-day review streak` badge — students see the streak reward the moment they finish a session.
+- **Live updates.** New `REVIEW_STREAK_CHANGED_EVENT` fires on every stamp; existing storage-bump listeners on the dashboard mini and decks panel pick it up so the chip flips live without a remount when a mark happens in another tab. Cross-tab also covered via `storage` event for the new key.
+- **Safety.** Pure client-side. No PII off-device — only YYYY-MM-DD date stamps stored, never card content. Same defensive Safari-private / corrupted-JSON read posture as the rest of the flashcard / testConfidence libs. No new external API integrations.
+  - feat: 5522beb · https://github.com/landon-personal/gradeguardnewsync/commit/5522beb
+
+### Fixed (web) — `FlashcardViewer` + `CrossDeckReview` keyboard shortcuts swallow Cmd/Ctrl+key
+
+- **`src/components/assistant/FlashcardViewer.jsx`** + **`src/components/assistant/CrossDeckReview.jsx`** — the `g/r/f/Space` deck nav handlers fired regardless of modifier state, so any browser shortcut sharing a key with the deck nav was silently broken mid-study: `Cmd/Ctrl+R` (reload), `Cmd/Ctrl+G` (find next), `Ctrl+F` (find) all hit `preventDefault` and routed into mark-mastered / mark-review / flip instead of the browser default. A student opening Find to search within a long card front got the card flipped and no Find dialog. Bail on `e.metaKey || e.ctrlKey || e.altKey` before the key match — deck nav stays unmodified-only, browser shortcuts pass through. Same fix shape in both viewers; identical bug, copy-pasted handler. Also hardened `e.key.toLowerCase()` against the rare non-string key value as a defensive guard.
+  - fix: 967ac94 · https://github.com/landon-personal/gradeguardnewsync/commit/967ac94
+
+### Chore (web) — delete `naturalLanguageFilters.js` dead-code orphan
+
+- **`src/lib/naturalLanguageFilters.js`** — `matchesAssignmentSearch` and `matchesTestSearch` are never imported anywhere in `src/`. The file appears to predate the current Assignments / Tests filter surface (which uses the React Query cache + form-driven filter state, not a free-text natural-language matcher). Same posture as the `StudySchedule.jsx` / `PomodoroWidget.jsx` orphan deletes from prior shifts. -115 lines.
+  - chore: b03a070 · https://github.com/landon-personal/gradeguardnewsync/commit/b03a070
+
+---
+
 ## [Unreleased] — 2026-05-04 18:11 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
