@@ -17,6 +17,38 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-04 02:24 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — `SubjectGoalsStrip` per-subject daily focus pace line 🎯📅
+
+- **`src/lib/subjectGoals.js`** + **`src/components/dashboard/SubjectGoalsStrip.jsx`** — closes the "per-subject daily focus split" backlog item flagged in shift report #87 (and again as still-not-done in #88). The dashboard's per-subject weekly-goal strip already showed `45 / 90 min` per subject; what was missing was a concrete "what should I put into THIS subject TODAY" number. New "Today: X/Y min" line below each pill answers it directly.
+- **Adaptive math, per subject.** New `subjectDailyPace(weeklyGoal, weekMinutes, todayMinutes, daysLeft)` mirrors the global `dailyPaceFor` helper from `focusGoal.js` — returns `target = ceil((goal - weekMinutesExcludingToday) / daysLeft)`. Anchoring the denominator on `weekMinutesExcludingToday` keeps the per-subject target stable through the day (logging today's first Math Pomodoro doesn't drift the Math target downward mid-session). A student behind on Math early in the week sees the Math number creep up; one who blew past their Bio goal already sees it flip to a celebratory "+N bonus min" line.
+- **New `todayMinutesBySubject` lib export.** Same shape and resolution rules as `thisWeekMinutesBySubject` (assignment-name lookup, `Study: <test>` unwrap, untagged → "Other") but scoped to today only. Walks one localStorage key (`gg_focus_sessions_<today>`) instead of seven.
+- **UI tells.** Each pill grows a subtle border-top + 2-line breakdown: small uppercase "Today" label and a tabular `0 / 15 min` count. Turns emerald + bold + appends `✓` when today's per-subject target is hit. Hides on weekHit and zero-target rows so the pill never reads "today: 0 / 0 min" filler. When the week's already done and the student keeps going, a separate "Today · +N bonus min" line appears.
+- **Why a student notices it:** before this, the strip told a student "you're 30 / 90 min into Math this week" but offered no daily split. Now the same pill answers both "where am I for the week?" and "what should I put in today?" — the second answer is the one that actually drives behavior. Per-subject means a student knows whether to spend the next Pomodoro on Math (10 min behind today) vs. Bio (already on pace) vs. History (the goal-hit subject they can leave alone).
+- **Safety**: pure client-side localStorage. Reuses the same `gg_focus_sessions_*` and `gg_subject_goals` keys the rest of the strip already reads. No PII off device.
+  - feat: 0762457 · https://github.com/landon-personal/gradeguardnewsync/commit/0762457
+
+### Polished (web) — `WeeklyRecapModal` "% of all rated sessions landed" stat
+
+- **`src/components/dashboard/WeeklyRecapModal.jsx`** — closes the "% of all rated sessions that landed" item from shift #88's "What I didn't get to". The existing `intentionStats` only counts sessions where the student set an intention AND rated the outcome — which is the right denominator for "% of intention-set goals met" but completely excludes the new dashboard `PomodoroTimer` reflection prompts (which ask for an outcome but don't ask for an intention beforehand). A student who only uses the dashboard widget had no completion signal in the recap even after a week of rating sessions.
+- New `allRatedStats` memo: every session with an outcome rating regardless of intention. Renders an indigo-themed strip ("X% of rated sessions landed · across N focus sessions you reflected on this week") above the existing violet intention strip. Auto-hides when `noIntentionCount === 0` so a student who DOES type intentions every session never sees two strips with the same number — the intention-set view stays the only signal in that case.
+  - feat: 054cb98 · https://github.com/landon-personal/gradeguardnewsync/commit/054cb98
+
+### Fixed (web) — `StudyAssistant.handleAction` add-path fallback toast lied
+
+- **`src/pages/StudyAssistant.jsx`** — the catch in `handleAction` unconditionally toasted "Couldn't update your assignment. Please try again." regardless of which action threw. A student asking the assistant to ADD a new assignment whose create failed (server validation, network blip, etc.) saw an error referencing "updating" something that didn't exist yet — confusing and false. Branch the fallback message on `action.type` so the add path reads "Couldn't add that assignment. Please try again." Server-supplied `e.message` still wins over the fallback when present.
+  - fix: ec18396 · https://github.com/landon-personal/gradeguardnewsync/commit/ec18396
+
+### Removed (web) — `StudySchedule.jsx` orphan dead-code component
+
+- **`src/components/dashboard/StudySchedule.jsx`** — flagged across 5 prior shifts (#82, #83, #86, #87, #88) for a "keep developing or delete" decision. Defined but never imported anywhere; would have round-tripped an `InvokeLLM` call to generate an hour-by-hour study plan, but the dashboard real estate it would have occupied is already covered by `TodaysFocusCard`, `TodoItemCard`, `DailyGoalsCard`, `StudyHistoryInsights`, and the per-subject goal cards. Made the call this shift since it's been sitting untouched. Git history preserves the implementation if a future shift wants to revisit; the working tree no longer carries 433 lines of unreachable code or its `@/api/base44Client` + `date-fns` + `Skeleton` imports as dead deps.
+  - chore: f5fcda1 · https://github.com/landon-personal/gradeguardnewsync/commit/f5fcda1
+
+---
+
 ## [Unreleased] — 2026-05-04 00:46 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
