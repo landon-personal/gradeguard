@@ -17,6 +17,41 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-04 14:19 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Upcoming Tests in the dashboard PomodoroTimer task picker 🍅📚
+
+- **`src/components/dashboard/PomodoroTimer.jsx`** — closes the **"Test selector in dashboard PomodoroTimer"** backlog item flagged across shift reports #91, #92, and #94 (three shifts). The floating-widget task picker filtered `pendingAssignments` only — a student studying for an upcoming Bio test on the dashboard widget had **no way to tag the session with the test**, so the focus minutes never landed against `TestStudyPlan` / `NextTestCountdown`'s "Studied N min for this test" readouts (those readers match `Study: <test name>` rows in `gg_focus_sessions_<date>`).
+- **What changed.** Fetches upcoming Tests via the same `secureEntity("Test").filter` pattern that `SharedNotesPanel` and `RoomView` use (`status: "upcoming"`, sort by `test_date` asc, future-floor filter — NaN test dates pass through to match the `/Tests` + `Dashboard` behavior). New `<optgroup label="Studying for">` sits below the existing Assignments group in the picker; the label distinguishes the two clearly without doubling the visual weight of the picker itself.
+- **Backwards-compatible state shape.** `taskId` now accepts either an Assignment id (legacy) or `"test:<id>"` so the persisted `gg_pomodoro_state` `taskId` from prior shifts resolves unchanged — saved assignment ids stay assignment ids; the prefix is the only signal needed to branch into the test lookup. No migration required.
+- **Session-row tagging.** When a test is the active task, the just-written `gg_focus_sessions_<date>` row gets `assignment: "Study: <test name>"` — same tag shape `FocusTimer.jsx` already writes for its test sessions. Every aggregate reader (`TestStudyPlan`, `NextTestCountdown`, `WeeklyRecapModal`, `SubjectFocusHeatmap`) already matches this shape, so test-prep minutes accrue against the test exactly the way they do from the `/FocusTimer` page.
+- **UI.** Active-task pill renders `Study: <name>` for tests; subject color tinting works for both kinds (matches `AssignmentCard` / `TestCard` / `SubjectEffortIndex`'s shared subject colors). `PomodoroSubtaskMini` stays gated to assignment tasks — tests don't have free-form subtasks yet (`TestPrepChecklist` is its own fixed-list surface; free-form per-test subtasks remain on the backlog).
+- **Why a student notices it.** Before this shift, a student running a Pomodoro on the dashboard while studying for an upcoming Chemistry test had to either (a) bounce to `/FocusTimer`, pick the test there, and switch surfaces, or (b) accept that the focus minutes get logged as untagged (so the test's "Studied 45 min for this test" readout in `NextTestCountdown` never showed the work). Now the most-frequent dashboard surface tags test sessions correctly without leaving the page.
+- **Safety.** Reuses the existing `secureEntity("Test")` JWT path. No PII off-device. `Study: <test name>` tag stays in the same `gg_focus_sessions_<date>` localStorage bucket as everything else.
+  - feat: 8187847 · https://github.com/landon-personal/gradeguardnewsync/commit/8187847
+
+### Fixed (web) — `FlashcardViewer` cross-tab + same-tab mastery sync
+
+- **`src/lib/flashcardMastery.js`** + **`src/components/assistant/FlashcardViewer.jsx`** — closes the **"Cross-tab mastery sync in FlashcardViewer"** follow-up flagged in shift reports #92 and #94. A student with the same deck open in two tabs who marked a card mastered in tab A would see tab B's viewer keep stale `mastery` (stale per-card status / due badges / mastered chip / wrap-up counts) until remount.
+- **Fix shape.** `recordCardMastery` / `clearCardMastery` / `clearDeckMastery` now dispatch a `gg-flashcard-mastery-changed` CustomEvent (exported as `MASTERY_CHANGED_EVENT`) alongside the localStorage write — same shape as the assignment-snooze / subjectGoal / focusGoal change-events already in place. `FlashcardViewer` listens for both the cross-tab `storage` event (any `gg_flashcard_mastery_*` key) and the same-tab CustomEvent (filtered to the active deck via `detail.testName`); refreshes its `mastery` via `loadDeckMastery` on either signal so per-card badges, the Due/Weak filter chip counts, and the wrap-up screen stay in sync.
+  - fix: 77f73e0 · https://github.com/landon-personal/gradeguardnewsync/commit/77f73e0
+
+### Fixed (web) — `FloatingStreakCounter` re-celebrates a milestone after a streak break
+
+- **`src/components/dashboard/FloatingStreakCounter.jsx`** — pre-existing observation flagged in shift reports #93 and #94 ("a streak rebuild is a big emotional moment"). The milestone-confetti gate compared `streak > lastCelebrated` to decide whether to fire — so a student who hit a 30-day streak (saving `lastCelebrated=30`), then broke it and rebuilt to 7, got nothing. The next celebration only re-fired if they crossed 50, because 7/14/30 all triggered the `streak > lastCelebrated` short-circuit (7 > 30 is false). A streak rebuild deserves the same "Great week!" beat the original milestone got — losing 30 days and clawing back to a week of consistency is a real emotional moment, not a re-celebration of the same milestone.
+- **Fix.** Reset `lastCelebrated` to 0 whenever the persisted marker exceeds the current streak (i.e. the streak broke since the last celebration). One additional read at the top of the existing effect; no new state, no new listeners.
+  - fix: e8380b1 · https://github.com/landon-personal/gradeguardnewsync/commit/e8380b1
+
+### Fixed (web) — `SavedDecksPanel` + `TestCard` same-tab refresh on mastery writes
+
+- **`src/components/assistant/SavedDecksPanel.jsx`** + **`src/components/tests/TestCard.jsx`** — both surfaces had the cross-tab `storage` event covered (shipped in #93 + #94 respectively) but reacted to **same-tab** FlashcardViewer mastery writes only on parent-driven `version` bumps / remount. A student bouncing between `/Tests` and `/StudyAssistant` in the same tab who marked cards mastered in the viewer would return to `/Tests` and see the per-test "5 due" badge / "8/10 mastered" pill stuck on yesterday's count until the page remounted. `SavedDecksPanel` had the matching bug — the per-deck due/mastered chips lagged a same-tab mastery mark.
+- **Fix.** Both subscribe to the new `MASTERY_CHANGED_EVENT` shipped earlier in this shift's FlashcardViewer cross-tab fix. Same-tab "Got it" tap reflects on every other open surface inside one render cycle.
+  - fix: 351f59f · https://github.com/landon-personal/gradeguardnewsync/commit/351f59f
+
+---
+
 ## [Unreleased] — 2026-05-04 12:05 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
