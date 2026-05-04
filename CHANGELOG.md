@@ -17,6 +17,32 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-04 00:46 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — `PomodoroTimer` post-session reflection prompt: "did this session land?" 🎯💭
+
+- **`src/lib/focusReflection.js`** (new) + **`src/components/dashboard/PomodoroTimer.jsx`** + **`src/components/dashboard/FocusSessionHistoryModal.jsx`** — closes the "post-Pomodoro reflection" backlog item flagged in shift report #88. The dashboard Pomodoro now asks a one-tap question after every real time-elapsed work-session: ✓ Yes / ~ Partly / ✗ Not really. The chosen rating is stamped onto the just-written `gg_focus_sessions_<localdate>` row so it lives alongside `mode`, `minutes`, `assignment`, `distractions` — i.e. the same row every aggregate reader (heatmap, weekly recap, daily checkout, subject effort index, personal bests) already walks. Optional 1-line note input appears after the rating chip is tapped, so "Partly — got distracted by Slack" can land alongside the score.
+- **Schema unification.** `src/pages/FocusTimer.jsx` already writes a `outcome` field with the same yes/partly/no values via its existing reflection modal. Initial implementation accidentally introduced a parallel `reflection` field — caught and unified mid-shift to write `outcome` so a session rated on either surface aggregates in the same shape. The new `reflectionNote` field is the one new data point; the FocusTimer-page-only `intention` field is also surfaced inline in the modal so a session reads as "intent → result" in one row tooltip.
+- **Cancel/dismiss paths.** Auto-dismisses after 45s if the student never engages — long enough to not feel rushed, short enough that it's not still hanging there after a break ends. Any timer-control action (Reset / Skip / Mode-switch / Play to start the next session) also clears it. Auto-cycle starting the BREAK leaves the prompt up — that's exactly the right window for the student to reflect. Auto-cycle starting the next FOCUS clears it (via the next handlePlayPause / direct `advance`).
+- **`FocusSessionHistoryModal` visibility.** Each rated row now shows a small color-coded badge ("✓ Landed" / "~ Partly" / "✗ Off-track"), the optional note inline-truncated with hover tooltip, and any FocusTimer-page intention surfaced alongside. Header summary gains a "X/Y landed" tally so the student can see how often their sessions actually accomplished what they intended over the past 14 days.
+- **Why a student notices it:** the dashboard Pomodoro had been a counting-up tool ("you've done N sessions today") with no signal about whether those sessions actually landed. A student doing 4 Pomodoros that all ended in "Partly" or "Not really" is in a different place than 4 that all landed — and the data was being thrown away every time. Now a quick 2-second self-check after each session captures the signal without breaking flow, and the history modal turns the aggregate into a visible "I land 70% of my focus sessions" stat.
+- **Safety**: pure client-side localStorage. Note string capped at 140 chars, trimmed before persist. No PII off device. Same Safari Private Mode / quota posture as the rest of `gg_focus_sessions_*` writes.
+  - feat: f78f50d · https://github.com/landon-personal/gradeguardnewsync/commit/f78f50d
+  - schema fix: 3a419a0 · https://github.com/landon-personal/gradeguardnewsync/commit/3a419a0
+
+### Added (web) — `QuickCaptureCard` batch-add: paste a planner list, hit Add once 📋➕
+
+- **`src/components/dashboard/QuickCaptureCard.jsx`** — closes the "QuickCapture batch-add" backlog item flagged in shift report #87. The dashboard's Quick add card now accepts a multi-line name input. Single-line behavior is unchanged (Enter submits, focus stays). **Shift+Enter inserts a newline** so a student pasting 5 assignments off a class agenda or typing a list can create them all in one mutation. The textarea auto-grows to show up to 6 lines at a time.
+- **Submit fan-out.** The mutation splits on newline, trims, drops blanks, caps each line at 120 chars (matches the single-line maxLength so a giant paste doesn't fan out into rows the entity layer would reject), and fires via `Promise.allSettled` so a single bad row doesn't reject the whole batch — partial success reports as "Added 4/5 assignments — 1 failed." All rows share the same subject + date (matches how a student typically writes down work assigned in one class period).
+- **UI tells.** A small "× N batch" chip appears next to the full-form link when 2+ lines are present. Add button label flips to "Add N" + "Adding N…" while pending. Placeholder updates to mention Shift+Enter.
+- **Why a student notices it:** before this, a student copying a list of 5 assignments from a class Google Doc had to add them one at a time — name, subject, date, Add, name, subject, date, Add. Now it's paste, pick subject + date once, hit Add once. Real time-saver for the "got assigned a stack" failure mode that triggers most "I'll do this later" procrastination.
+  - feat: b0070e5 · https://github.com/landon-personal/gradeguardnewsync/commit/b0070e5
+  - per-line cap: 6ca4c0b · https://github.com/landon-personal/gradeguardnewsync/commit/6ca4c0b
+
+---
+
 ## [Unreleased] — 2026-05-03 22:10 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
