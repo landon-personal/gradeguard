@@ -17,6 +17,31 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-04 16:04 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — `FlashcardReviewMini` on the dashboard surfaces the spaced-rep due queue 🃏⏰
+
+- **`src/components/dashboard/FlashcardReviewMini.jsx`** (new) + **`src/pages/Dashboard.jsx`** — closes the natural extension of the last 4 shifts of flashcard work. The spaced-repetition layer (Leitner-ish 1d → 3d → 7d → 14d → 30d ladder, shipped #95) and the persisted-decks layer (#96) together promised "the deck pulls you back on a cadence" — but the only place a student could see the queue was `/StudyAssistant`. Open the dashboard each morning and there was no signal you had cards to refresh. **Why a student notices it:** the most-frequent surface (`/Dashboard`) now leads with "5 cards due for review" when there's actually work to do — three rows max, most-due-first, oldest tie-break for stale decks. One tap into the FlashcardViewer in spaced-rep Due-only filter mode (uses the existing `?tool=flashcards&testId=<id>&due=1` deep-link wired up in #97).
+- **Auto-hides** when zero cards are due across all saved decks — zero noise for students who haven't generated a deck yet, or who are already caught up. Also gracefully handles the edge case where the saved deck's matching test row was deleted (drops the student on the StudyAssistant home so the SavedDecksPanel can re-open it; mirrors the same fallback that panel already uses).
+- **Live updates.** Subscribes to cross-tab `storage` events for any flashcard-prefixed key AND the same-tab `MASTERY_CHANGED_EVENT`, so a "Got it" tap in the FlashcardViewer flips the dashboard count without a remount. Plus a self-rescheduling midnight tick (recursive `setTimeout` pattern, mirrors `TestCard`'s due-count badge from #97) so a card whose interval rolls over while the dashboard is open surfaces automatically — no stale count if the page sits open across two wall-day rollovers.
+- **Placement.** Workload row, right below `QuickWinsCard` — same "what can I knock out right now?" altitude. Amber gradient borrows from the discovery banner inside the FlashcardViewer (visual continuity).
+- **Safety.** Pure client-side: `listSavedDecks()` + `loadDeckMastery()` + `summarizeDeck()` from existing libs. Card content never leaves the browser. Same defensive Safari-Private / corrupted-JSON read posture as the rest of the flashcard code path.
+  - feat: dfe1d00 · https://github.com/landon-personal/gradeguardnewsync/commit/dfe1d00
+
+### Fixed (web) — `SavedDecksPanel` row tap honors the due-filter signal
+
+- **`src/pages/StudyAssistant.jsx`** (`openSavedDeck`) — caught while reviewing the new dashboard mini-card. A deck row visibly chipped "5 due" in `SavedDecksPanel` opened the FlashcardViewer in **all-cards** mode, not Due-only — inconsistent with both the new dashboard `FlashcardReviewMini` and the per-test "Review N due" deep-link from `TestCard` (shipped #97). A student who tapped a row labeled "5 due" landed on the full deck and had to manually flip the Due filter chip themselves, defeating the visual signal. **Fix:** `openSavedDeck` now reads the deck summary and routes due decks into the spaced-rep filter automatically (`initialFilter: summary.due > 0 ? "due" : "all"`).
+  - fix: 48815e8 · https://github.com/landon-personal/gradeguardnewsync/commit/48815e8
+
+### Fixed (web) — `VocabQuizFromNotes` decks weren't persisted, breaking spaced-rep
+
+- **`src/components/assistant/VocabQuizFromNotes.jsx`** — the notes-derived flashcard set generator skipped the `saveDeckCards()` call, so the cards lived only in component state. Closing the viewer dropped them; re-pasting the same notes (or re-opening "From Your Notes" / a custom title later) regenerated the deck with potentially different LLM-written wording, breaking the cardId hash and silently zeroing out the spaced-repetition schedule. The mastery state lived forever (keyed by `testName`) but had no stable card content to anchor to. **Same loophole** the test-tied StudyAssistant decks had before #96; now closed identically — notes-derived decks save under the title (or "From Your Notes"), show up in My Decks + the new dashboard `FlashcardReviewMini`, and mastery streaks accumulate properly across sessions.
+  - fix: 2d9b62f · https://github.com/landon-personal/gradeguardnewsync/commit/2d9b62f
+
+---
+
 ## [Unreleased] — 2026-05-04 14:19 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
