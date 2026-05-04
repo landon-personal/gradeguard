@@ -17,6 +17,29 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-04 18:11 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — `CrossDeckReview`: one-run refresher across every saved-deck due card 📇🔁
+
+- **`src/components/assistant/CrossDeckReview.jsx`** (new) + **`src/pages/StudyAssistant.jsx`** + **`src/components/assistant/SavedDecksPanel.jsx`** + **`src/components/dashboard/FlashcardReviewMini.jsx`** — closes the **"Cross-deck Review all due"** backlog item flagged in shift report #96. The dashboard `FlashcardReviewMini` and the `SavedDecksPanel` both surface a per-deck "5 due" count, but a student with 17 cards due across 4 decks had to open each deck row one at a time, finish that mini-session, return, and tap the next one — friction that defeated the whole point of the spaced-rep "pull you back" promise. **Why a student notices it:** one tap, every due card across every saved deck, in a single seamless flip-and-mark run.
+- **What changed.** New `<CrossDeckReview>` viewer with the same flip / keyboard nav (G mark mastered, R need review, space flip, ←/→ step) / wrap-up beat as `FlashcardViewer`, but the queue is built from `listSavedDecks()` + per-deck `loadDeckMastery()` at mount time, not from a single `cards` prop. Each card carries its origin `sourceTestName`; every "Got it" / "Need review" tap routes `recordCardMastery()` back to that source, so spaced-rep streaks accumulate on the right deck.
+- **Stable interleave.** The queue walks decks in due-count-desc order, taking one card from each per pass, so a student with 12 due in Bio + 3 due in History gets a varied pace instead of 12 Bio cards in a row. Falls back to alphabetical for ties — same as the saved-decks index ordering.
+- **Stable mid-run.** The queue is snapshotted at mount (`useState(() => buildDueQueue())`), so a "Got it" mark — which removes a card from the "due now" set in localStorage — doesn't shift indices under the student. The wrap-up screen shows a per-deck tally (`Bio Ch.4: 4 mastered · 1 review`) so the student sees how the load was distributed.
+- **Live cross-tab + same-tab refresh.** Same listener pattern as FlashcardViewer / SavedDecksPanel (cross-tab `storage` events for any `gg_flashcard_mastery_*` key + same-tab `MASTERY_CHANGED_EVENT`) so a status chip on a card updates without a remount if the student opens the same deck in another tab mid-run.
+- **New `?tool=flashcards-review-all` deep link** auto-launches the refresher on `/StudyAssistant`. The dashboard `FlashcardReviewMini` adds a "Review all N in one run" footer button that uses it; `SavedDecksPanel` adds a matching CTA at the panel header. Both gate on `decksWithDue >= 2` — single-deck due is still a one-tap row open, no need for the cross-deck wrapper there.
+- **Empty state.** If a student lands here after the queue emptied between dashboard tap and component mount (e.g. they cleared the last card from another tab in the gap), shows a friendly "No cards are due right now" beat instead of an empty stepper.
+- **Safety.** Pure client-side: every read goes through `listSavedDecks()` + `loadDeckMastery()` from existing libs. Card content never leaves the browser. Same defensive Safari-Private / corrupted-JSON read posture as the rest of the flashcard code path. No new external API integrations; the per-card mastery write path is unchanged from `FlashcardViewer`.
+  - feat: 0bd6a77 · https://github.com/landon-personal/gradeguardnewsync/commit/0bd6a77
+
+### Fixed (web) — `CrossDeckReview` dead direction state slot
+
+- **`src/components/assistant/CrossDeckReview.jsx`** — `setDirection` was being called inside `goTo` but no `AnimatePresence` variant referenced it. Leftover from copying the `FlashcardViewer` shape; trimmed in a follow-up commit.
+  - fix: f8541f4 · https://github.com/landon-personal/gradeguardnewsync/commit/f8541f4
+
+---
+
 ## [Unreleased] — 2026-05-04 16:04 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
