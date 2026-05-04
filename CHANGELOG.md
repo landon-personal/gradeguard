@@ -17,6 +17,36 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-04 08:25 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — `FlashcardViewer` spaced-repetition: mastered cards come back on a schedule 🔁🧠
+
+- **`src/lib/flashcardMastery.js`** + **`src/components/assistant/FlashcardViewer.jsx`** — closes the recurring "FlashcardViewer spaced-repetition" backlog item flagged across shift reports #86, #87, #88, #89, #90, and #91 (six shifts). The mastery storage shape already recorded `ts` per card; what was missing was a scheduler that uses that timestamp to surface mastered cards for refresher review.
+- **Schedule (Leitner-ish).** A card mastered once is due in **1 day**, then **3, 7, 14, 30 days** as the consecutive-mastered streak grows. Tuned for high-school study cycles — overnight retention check on day 1, then weekly refresher, then biweekly, then monthly. Anything past streak 4 stays at 30 days; further ramps would push cards out of the unit window before the test. Marking a card "Need review" breaks the streak so it falls back to the start of the ladder.
+- **Storage upgrade, backwards compatible.** Each card record now carries `streak` alongside the existing `status / ts / seen`. Older writes that lack `streak` read as 0 and re-enter the schedule from scratch — no data migration, no broken decks.
+- **Three new lib helpers.** `dueAtFor(rec)` returns the ms-epoch timestamp when the card is next due (0 = due now). `isDueNow(rec, now)` returns the boolean. `daysUntilDue(rec, now)` returns whole-day countdown for the per-card "due in 3d" badge. `summarizeDeck` now returns a `due` count alongside `mastered / review / unseen / total`.
+- **Three UI surfaces.** (1) A new **"Due (N)"** filter chip in the navigation strip, shown when some-but-not-all cards are due AND at least one card is mastered (so it doesn't duplicate the existing "Weak" chip on a fresh deck). (2) A **per-card "due in 3d" / "due for review" badge** next to the Question/Answer label so the schedule is visible on the card itself, not just hidden behind a chip. (3) A **discovery banner** above the card — "N cards due for refresher review · Review due →" — only when there are scheduled-due cards and the filter is "all". Tap = switches to the Due filter. (4) The wrap-up screen surfaces a **"Review N due"** CTA above "Review N weak."
+- **Why a student notices it:** the "Got it / Need review" markers used to be a one-shot signal that quickly went stale ("I marked everything mastered last week, did I actually retain it?"). Now the deck pulls students back to mastered cards on a real cadence — day 1 catches false-confidence, day 3 confirms overnight retention, day 7+ catches drift. The whole point of flashcards is durable recall; until this shift the app rewarded the *first* mastery and then forgot about it.
+- **Safety**: pure client-side localStorage. No PII off device. Same defensive Safari Private-mode / corrupted-JSON read posture as the rest of `flashcardMastery.js`.
+  - feat (core): e320a87 · https://github.com/landon-personal/gradeguardnewsync/commit/e320a87
+  - feat (discovery banner): 0189211 · https://github.com/landon-personal/gradeguardnewsync/commit/0189211
+
+### Fixed (web) — `FlashcardViewer` tap-same-status toggle-off broke spaced-rep streaks
+
+- **`src/components/assistant/FlashcardViewer.jsx`** — caught while reviewing the spaced-rep code path. The pre-existing "tap the same status you already chose to undo a mismark" affordance was wrong under spaced-rep semantics. A student who mastered a card on day 1, came back on day 2 to review it (now due), and tapped "Got it" again to advance the streak would instead trigger the toggle-off path — `clearCardMastery` knocked the card all the way back to **unseen**, silently breaking their schedule. Net effect: a student doing the right thing (re-affirming due cards) was destroying their own progress.
+- **Time-gate the undo.** Toggle-off only applies when the previous mark is less than 30 seconds old (the "oh wait I meant Review" window). After 30s, taps fall through to `recordCardMastery` so the streak advances and the next due-date pushes out (1d → 3d → 7d → 14d → 30d).
+  - fix: 4d431b5 · https://github.com/landon-personal/gradeguardnewsync/commit/4d431b5
+
+### Fixed (web) — `FlashcardViewer` filter-mode mastered-mark silently skipped the next card
+
+- **`src/components/assistant/FlashcardViewer.jsx`** — pre-existing bug, surfaced more visibly by the new "Due" filter. In a filtered view ("Review weak" or "Due"), marking the active card "Got it" makes it drop OUT of `visibleCards` on the next render (because mastered cards aren't due / aren't weak). The auto-advance setTimeout was using the **stale** index from before the re-render and called `goTo(index + 1)` — but post-render, `visibleCards[index]` was already the next card, so `goTo(index + 1)` navigated to the card AFTER that. A student in "Review weak" filter mastering the first card would silently skip the second card entirely. Six-shift bug; live since the original Weak filter was introduced.
+- In filtered views, skip the explicit `goTo(index + 1)` — let the natural re-render surface the next card at the same index. Reset flip state so it opens on the question side. If the just-mastered card was the last one in the filtered view, roll into the wrap-up screen so the student gets a clear "done" beat (instead of the empty-filter useEffect dumping them at the start of the full deck).
+  - fix: 1f51fe3 · https://github.com/landon-personal/gradeguardnewsync/commit/1f51fe3
+
+---
+
 ## [Unreleased] — 2026-05-04 04:12 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
