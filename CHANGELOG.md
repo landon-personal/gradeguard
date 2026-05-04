@@ -17,6 +17,34 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-04 22:12 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Fixed (web) — restore `naturalLanguageFilters.js` (build-breaking) 🚑
+
+- **`src/lib/naturalLanguageFilters.js`** — the prior shift (2026-05-04 20:20 UTC) deleted this file as a "zero usages" dead-code orphan, but it IS imported by **`src/pages/Assignments.jsx`** (line 30) and **`src/pages/Tests.jsx`** (line 24), both via the `../lib/` relative path style. The "dead-code" grep evidently only matched the `@/lib/` alias and missed both call sites. The deletion broke the production Vite build:
+  ```
+  Could not resolve "../lib/naturalLanguageFilters" from "src/pages/Assignments.jsx"
+  ```
+- **Why a student notices it.** This was the search bar on `/Assignments` and `/Tests` — `matchesAssignmentSearch` / `matchesTestSearch` are the live `debouncedSearch` filter for both list pages. So the canonical web app didn't just fail to deploy — once the auto-sync to gradeguard.org caught up with the prior commit, every `/Assignments` and `/Tests` page would have hit a hard import error.
+- **Fix.** Restored the file verbatim from the pre-delete commit (`b03a070^`, 115 lines). `npm run build` exits 0 again.
+- **Lesson for future shifts.** The "zero usages" check needs to walk both `@/lib/` and `../lib/` import shapes before deleting. A `git grep -E '(\\.\\./lib|@/lib)/<name>'` is a 5-second confirmation step that would have caught this.
+  - fix: ba1c231 · https://github.com/landon-personal/gradeguardnewsync/commit/ba1c231
+
+### Added (web) — Pre-session intention input on the dashboard PomodoroTimer 🎯
+
+- **`src/components/dashboard/PomodoroTimer.jsx`** — closes the gap explicitly called out in `WeeklyRecapModal.jsx` lines 189-194:
+  > The dashboard PomodoroTimer (which doesn't ask for intention) writes outcome on every session, so a student who only uses the dashboard widget has no intention-bound rows and `intentionStats` returns null even after 10 rated sessions.
+- **What changed.** Until this shift, only `/FocusTimer` asked "what are you trying to accomplish?" before a work session — the dashboard widget jumped straight from Start to Did-this-land. So a student who lives on the dashboard had no intention data, and the WeeklyRecap's "X% of intention sessions hit their goal" headline + per-subject intention breakdown were silently empty for them. **Why a student notices it:** completes the "set goal → reflect on it" loop that until this shift only existed on the standalone /FocusTimer page. The recap finally counts dashboard sessions.
+- **UI shape.** A small `Target`-iconed input sits below the session dots in work mode while idle: "Goal for this session (optional)". Persisted in the same `gg_pomodoro_state` sessionStorage blob the rest of the widget uses, so collapsing the panel mid-typing doesn't drop the draft. While the timer is running, the input collapses into a centered read-only chip ("🎯 finish problems 1–10") so the goal stays in view but can't be edited mid-session. Hidden during the post-session reflection prompt to avoid stacking.
+- **Persistence.** On a real time-elapsed work-session completion, the trimmed intention is stamped onto the `gg_focus_sessions_<localdate>` row via the same `intention` field `FocusTimer.handleComplete` writes — so `WeeklyRecapModal.intentionStats` / `intentionBreakdown` (which already filter on `s.intention`) read it identically regardless of which timer the student used. `FocusSessionHistoryModal` already surfaces `s.intention` as a tooltip on every row, so dashboard-widget sessions now read as "intent → result" alongside FocusTimer-page rows.
+- **Reflection prompt.** The post-session "Did this session land?" prompt now shows the intention as a quoted sub-header above the rating chips, so the student sees the original goal at the moment they're rating whether the session landed.
+- **Clear semantics.** Intention is cleared on a real work-session completion (matches the FocusTimer page beat). Skips and break-end completions don't touch it — a paused-then-resumed run keeps the same goal. Reset / mode-switch / handlePlayPause also leave intention alone, since those don't end the session.
+  - feat: 011c7e8 · https://github.com/landon-personal/gradeguardnewsync/commit/011c7e8
+
+---
+
 ## [Unreleased] — 2026-05-04 20:20 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
