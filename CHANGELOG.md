@@ -17,6 +17,36 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-05 04:03 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — 30-day completion heatmap inside the FloatingStreakCounter hover card 📅🔥
+
+- **`src/components/dashboard/AssignmentStreakHeatmap.jsx`** (new) + **`src/components/gamification/streakUtils.jsx`** + **`src/components/dashboard/FloatingStreakCounter.jsx`** — sibling to the FlashcardStreakHeatmap that shipped last shift (#101). The flame chip on the floating streak counter alone is binary — active (orange flame), at-risk (red pulse with "!"), or inactive (gray). It says "5 days" but doesn't show whether the rhythm is rock-solid or already fragile (e.g., one day in seven was a near-miss). The heatmap surfaces the *shape* of the recent streak so a hover-on-chip lands on a calendar instead of a number.
+- **What changed.** New `lastNDaysCompletion(assignments, n)` export in `streakUtils.jsx` returns `[{date, hit}, ...]` for the last N local days, deriving from the same `status === "completed" && updated_date` set that `calcStreak` already builds (refactored into a small `buildCompletedDaysSet` helper so both functions share the parse). The `AssignmentStreakHeatmap` component renders 30 cells horizontally, today gets a ring, with two `tone` palettes — `tone="dark"` for white-card surfaces (gradient-orange hits) and `tone="light"` for the orange-flame hover-card background (white-fill hits, white/25 misses, white-on-orange today ring). No new fetch, no new storage key — pure render of data already in scope on the streak counter via the existing `useQuery`.
+- **Where it surfaces.** Inside the `FloatingStreakCounter` hover card. The card was previously a single horizontal row (number + label + message); now it's a flex-col with the original row on top and the heatmap separated by a soft orange divider. Card width pinned to `w-64` (was `max-w-64`) so 30 cells lay out predictably regardless of streak count text width. Hidden when `assignments.length === 0` so a brand-new student doesn't see an all-empty grid on hover.
+- **Why a student notices it:** rhythm visualization for the assignment streak the way last shift's heatmap added it for the review streak. A student with a 5-day streak hovers and sees "I've been daily for two weeks except Tuesday and last Saturday" — that's the motivational signal the chip alone can't carry.
+- **Safety.** Pure client-side; reads only the assignments array already loaded for the rest of the dashboard. No PII off-device. No new dependencies.
+  - feat: 3f06994 · https://github.com/landon-personal/gradeguardnewsync/commit/3f06994
+
+### Added (web) — Flashcard heatmap stays visible after a streak break
+
+- **`src/components/dashboard/FlashcardReviewMini.jsx`** + **`src/components/assistant/SavedDecksPanel.jsx`** — closes the follow-up flagged in shift report **#101**: a student who broke their review streak got the dashboard mini to disappear (caught-up state, gated on `streak > 0`) AND the streak chip to go away (gated on `streak > 0`). The heatmap, which sat under the chip in both surfaces, also disappeared — taking with it the visual "you were daily for two weeks" record that might motivate restarting. The cliff was harshest right when it most needed to be soft.
+- **What changed.** Two related gates relaxed to `(streak > 0 || hasReviewHistory)` where `hasReviewHistory = loadReviewDays().length > 0`. (1) `FlashcardReviewMini` caught-up state — when there's any history, switches to a gray-tone "Flashcard review history · Review one card today to start a new streak" card with the heatmap underneath instead of returning null. (2) `FlashcardReviewMini` due-state heatmap — renders below the deck list whenever any history exists, so even a student in the middle of clearing a queue with a broken streak sees the rhythm record. (3) `SavedDecksPanel` header — same relaxation, so the StudyAssistant page also surfaces the historical heatmap during a streak break.
+- **Important nuance.** A student who has *never* reviewed (no streak, no history) still gets nothing rendered. The relaxation only takes effect once the student has at least one review-day stamp on file, so the no-decks-yet onboarding posture is preserved.
+- **Why a student notices it:** the visual "you've reviewed 18 of the last 30 days" stays available across a missed-day cliff, and the explicit "review one card today to start a new streak" copy makes the next step obvious. The heatmap reads less like a streak-counter and more like a habit tracker, which is the right framing once the chain has broken.
+  - feat: 5137bfc · https://github.com/landon-personal/gradeguardnewsync/commit/5137bfc
+
+### Added (web) — SubjectGradeGoalsStrip per-row tap deep-links to /Assignments by subject
+
+- **`src/components/dashboard/SubjectGradeGoalsStrip.jsx`** — closes the consistency follow-up flagged in shift report **#101**: `SubjectGoalsStrip` per-subject pills became tappable last shift (open `SubjectDetailModal` with `defaultView="goal"`), but the sibling `SubjectGradeGoalsStrip` rows on the dashboard were styled like cards and had no per-row click handler — only the strip-level `Edit` button targeted `/Assignments` (with no subject filter). So a student looking at "Math: now B (84%) → target A · Stretch" had to tap the small `Edit` link, then re-find the Math row on /Assignments to open the GradeGoalCalculator.
+- **What changed.** Each row is now a `<button>` that navigates to `/Assignments?subject=<encoded>`. Reuses the existing `?subject=` URL param `Assignments.jsx` already honors (lines 99-106) — no new route handling needed. Hover lift (`hover:-translate-y-px hover:shadow-sm`), border tint to indigo on hover, indigo focus ring; matches the `SubjectGoalsStrip` pill UX so the two strips feel like the same family.
+- **Keyboard nav comes free.** Native `<button type="button">` is tab-reachable + Enter/Space-activatable by default — same posture as the time-goals strip from last shift.
+  - feat: 217242c · https://github.com/landon-personal/gradeguardnewsync/commit/217242c
+
+---
+
 ## [Unreleased] — 2026-05-05 02:09 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
