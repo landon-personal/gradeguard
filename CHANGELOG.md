@@ -17,6 +17,44 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-05 06:08 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Date-window deep-links from EstimatedWorkload bands 🪟📅
+
+- **`src/components/dashboard/EstimatedWorkload.jsx`** + **`src/pages/Assignments.jsx`** — closes the "Date-band drill-in on `EstimatedWorkload`" item from shift report **#102**. The 3 bands (Today / Next 3 days / Next 7 days) on the dashboard widget were styled like cards — chunky soft-color tiles with the rolling minute total and a per-band progress bar — but had no tap target. The strip-level "Review" link only went to `/Assignments` with no filter, so a student wanting to see "what's the 90 minutes I have today" had to land on the full pending list and re-derive the today filter manually.
+- **What changed.** Each band is now a `<Link>` (when `count > 0`) to `/Assignments?dueWindow=today|soon|week`. New `filterDueWindow` state on `/Assignments` reads the URL param, pins `filterStatus="pending"` + `sortBy="due_soon"` so the count the student lands on matches the count shown on the band, and applies a day-budget filter (`days >= 0 && days <= dueWindowDays`) alongside the existing status/subject filters. Empty bands stay non-tappable so a student doesn't navigate to a blank list.
+- **Visible chip + clear.** When the dueWindow filter is active, an indigo pill appears in the quick-filter row: `🪟 Due today ×` / `🪟 Due in 3 days ×` / `🪟 Due in 7 days ×`. Tap to clear back to all-pending.
+- **Why a student notices it:** answers "what does my Today band actually contain?" in one tap. The dashboard band's "~90 min · 4 items" was previously a tease — now it's a tappable handle into the exact list of those 4 items.
+  - feat: 8e5862d · https://github.com/landon-personal/gradeguardnewsync/commit/8e5862d
+
+### Added (web) — DeadlineCalendar day-cell deep-links to /Assignments?dueDate= 📅🗓
+
+- **`src/components/dashboard/DeadlineCalendar.jsx`** + **`src/pages/Assignments.jsx`** — closes the "DeadlineCalendar event taps" item flagged in shift report **#102**. The calendar showed colored dots per subject + a red dot for tests on each day-cell, with a hover tooltip listing the items, but tapping a day did nothing. Mobile users got no tooltip at all and zero interactivity — the calendar was effectively a desktop-only info widget for them.
+- **What changed.** Each cell with at least one pending assignment becomes a `<Link>` to `/Assignments?dueDate=YYYY-MM-DD` (current-month, future-or-current days only). New `filterDueDate` state on `/Assignments` reads the param, pins `filterStatus="pending"` + `sortBy="due_soon"`, and adds an exact-date match alongside the existing filters. Strict `^\d{4}-\d{2}-\d{2}$` shape check on the param so a malformed value falls through silently instead of rendering an empty list under a confusing chip.
+- **Local YYYY-MM-DD via custom `ymd()` helper** — `toISOString()` would shift to UTC and a Tuesday tap after 8pm Pacific would land on Wednesday's filter. The helper reads `getFullYear / getMonth / getDate` against local time so the tap goes to the day the student is looking at.
+- **Visible chip + clear.** Active dueDate filter surfaces as `📅 Due Mon, May 12 ×` (formatted via `toLocaleDateString`). Tap to clear.
+- **Why a student notices it:** the DeadlineCalendar transforms from a hover-only desktop widget into a tappable nav handle. A student planning the week scrolls the calendar, taps Friday, and sees exactly what's due Friday — same gesture works on mobile.
+  - feat: 4b7051d · https://github.com/landon-personal/gradeguardnewsync/commit/4b7051d
+
+### Added (web) — Tests-side parity with /Tests?testDate= 📅🧪
+
+- **`src/components/dashboard/DeadlineCalendar.jsx`** + **`src/pages/Tests.jsx`** — completes the calendar deep-link parity. Tests-only days (red-dot only, no assignment swatches) were still info-only after the previous commit — a student tapping a red dot for a bio midterm got nothing. Now they deep-link to `/Tests?testDate=YYYY-MM-DD`. Mixed assignment+test days continue to route to `/Assignments?dueDate=` since the assignments-side has more interaction handles (snooze, focus timer, subtasks); the calendar tooltip still surfaces both lists so the student knows the test is on that day.
+- **What changed.** New `filterTestDate` state on `/Tests`, parallel URL handling to `/Assignments`. Same strict shape check. Filter applied alongside subject/search inside `filteredTests`. Visible purple chip + clear (`📅 On Mon, May 12 ×`) — purple instead of indigo to differentiate from the assignments-side at a glance.
+- **Why a student notices it:** the DeadlineCalendar is now fully tappable. Every day with any pending item routes to the right list. Closes the "tests-only days are dead pixels on mobile" gap.
+  - feat: 49b180e · https://github.com/landon-personal/gradeguardnewsync/commit/49b180e
+
+### Added (web) — Rolling time-estimate subtotal in the Pending header on /Assignments ⏱
+
+- **`src/pages/Assignments.jsx`** — small UX polish that pairs naturally with the new date-window filters above. The Pending list header was just `"Pending (5)"`. Now it's `"Pending (5) · ~3 hrs"` (or `~80 min` under an hour, rounded hours past 10), with a `(+2 unestimated)` annotation when some items don't have an estimate. Hidden when no item has an estimate.
+- **Live with filters.** The subtotal recomputes on every filter change — apply a Math subject filter and the rollup flips to "Math · ~80 min total". So a student who just tapped a `dueWindow=today` band sees both the band's promised total ("~90 min") AND the live confirm in the header.
+- **Format ladder.** `<60 min → "{N} min"`; `<600 min → "{N.x} hr"` (one-decimal); `≥600 min → "{N} hrs"` (rounded). The decimal cutoff at 10 hours is the same shape `EstimatedWorkload.formatHours` uses, so the dashboard band and the page header agree on units.
+- **Why a student notices it:** at-a-glance planning load. Until now, the only place to see total estimated time across pending was the dashboard EstimatedWorkload widget — and even that only banded by date (today / 3 days / 7 days), never the full-pending total. This closes the gap with one indigo chip on the page header.
+  - feat: aca6d96 · https://github.com/landon-personal/gradeguardnewsync/commit/aca6d96
+
+---
+
 ## [Unreleased] — 2026-05-05 04:03 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
