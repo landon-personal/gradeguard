@@ -17,6 +17,37 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-05 08:10 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Subject filter chips + per-day workload subtotal on DeadlineCalendar 🎨📅
+
+- **`src/components/dashboard/DeadlineCalendar.jsx`** — the calendar widget on the dashboard now sports a full subject-filter row above the month grid. Each subject present in the current pending+upcoming pool gets a colored chip (using the stable `subjectColors.js` palette so the cue matches the dot row, the SubjectGoalsStrip pills, and every other subject surface). Multi-select; the leading "All" chip clears. Active chips render filled with the subject's hex; inactive chips render in `soft + text` posture. Hidden when there's only one subject (nothing meaningful to filter).
+- **Why a student notices it:** answers "what does my Math month look like?" in one tap. A student with 4–5 active classes sees their whole load mixed together in the dot row — now they can scope to one or two and see only those deadlines, including the dot indicators, the per-day tooltips, and the tappable cells.
+- **Plus: per-day workload subtotal in the day tooltip** — closes the "Per-day total time estimate in DeadlineCalendar tooltip" item from shift report **#102**. The tooltip header was just `"May 12"`. Now it's `"May 12 · ~90 min"` (or `"~90 min · +2"` when some assignments on that day don't have an estimate). Same `formatEst` shape EstimatedWorkload uses so units agree across the dashboard.
+- **Plus: footer summary line** — under the legend, a new right-aligned summary surfaces `"4 upcoming · ~3 hrs +1"` for the visible-month + active-filter scope. Counts current-month, future-or-current days only (matches the tappable-cell rule). Respects the subject filter so a student scoping to Math sees `"4 upcoming · ~3 hrs"` instead of the ungated total.
+  - feat: 9f8d481 · https://github.com/landon-personal/gradeguardnewsync/commit/9f8d481
+  - feat: bb0aef3 · https://github.com/landon-personal/gradeguardnewsync/commit/bb0aef3
+
+### Added (web) — Per-band hover preview on EstimatedWorkload ⏳
+
+- **`src/components/dashboard/EstimatedWorkload.jsx`** — closes the "Per-band hover preview on EstimatedWorkload" item from shift report **#102**. The 3 dashboard bands (Today / Next 3 days / Next 7 days) deep-link to `/Assignments?dueWindow=`, but until this shift a student had to actually navigate before knowing what the band contained. Now hovering a band surfaces a native `title=` tooltip listing the first 3 assignments (with their per-item est in minutes when set) plus a `…and N more` tail when the band has more than 3. Plain string so it shows in every browser without custom popover infra.
+- **Why a student notices it:** "what's actually IN my Today band?" without spending the navigation. Especially useful on the larger Week band when 8 things are stacked under one number.
+  - feat: 87b4c8c · https://github.com/landon-personal/gradeguardnewsync/commit/87b4c8c
+
+### Added (web) — Tap-to-fill priority + win chips on DailyCheckout 🌙✨
+
+- **`src/components/dashboard/DailyCheckout.jsx`** — until this shift, both checkout fields were plain text inputs. A student typing "Tomorrow's #1 priority" or "One thing that went well today" had to retype the assignment name from memory. Now both inputs surface tap-to-fill suggestion chips populated from real data:
+  - **Priority chips** (indigo): top 4 pending assignments due today/tomorrow, ranked by due-soonest then by priority (high > medium > low). One tap pre-fills `"Finish <name>"` so the student commits to a real item from their list instead of typing a vague intent.
+  - **Win chips** (emerald): up to 3 most-recently-completed-today assignments. One tap pre-fills `"Finished <name>"` — a student who didn't bother typing a win still gets credit for shipping work.
+  - Both chip rows hide once the student starts typing in the corresponding field, so the chips don't compete with their own draft.
+- **Why a student notices it:** lower-friction checkout. The 30-second "wrap up the day" pause becomes 5 seconds for a student who just finished their bio lab — tap, save, done.
+  - feat: 739b8e0 · https://github.com/landon-personal/gradeguardnewsync/commit/739b8e0
+  - feat: d319670 · https://github.com/landon-personal/gradeguardnewsync/commit/d319670
+
+---
+
 ## [Unreleased] — 2026-05-05 06:08 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
