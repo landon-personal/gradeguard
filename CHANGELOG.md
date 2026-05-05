@@ -17,6 +17,46 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-05 00:09 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — Per-test focus-log strip on `TestCard` 🍅📚
+
+- **`src/lib/assignmentFocusLog.js`** + **`src/components/tests/TestCard.jsx`** — closes the **top-priority "didn't get to" item from shift report #99**: `assignmentFocusLog.lookupForAssignment` already drove "Worked 45m · 3h ago" inline on `AssignmentCard` (line 351); the parallel `Study: <test name>` row shape stamped by both `FocusTimer` (line 512) and the dashboard `PomodoroTimer` (line 302) had no read-side surface. Until this shift, a student who tagged a Pomodoro session against an upcoming test from the dashboard widget (shipped in #95) had to bounce to `/FocusTimer` or `WeeklyRecap` to see those minutes accrue.
+- **What changed.** New `lookupForTest(testName)` export — same scan and result shape as `lookupForAssignment`, joins on the `Study: ` prefix instead of the bare name to avoid a same-named assignment+test pair colliding. `TestCard` subscribes to focus-session writes via the same `subscribeFocusSessionChanges` helper the assignment side uses (so the strip flips live without a remount when a Pomodoro lands), 60-second relative-time refresh while mounted, hides on completed tests and zero-session tests so it stays silent until there's something to surface.
+- **UI shape.** Small `History`-iconed indigo strip ("Studied 45m · 3h ago · 90 min logged") sits between the test_date row and the topics line, so the focus signal is at-a-glance alongside the rest of the test metadata. Title-tooltip shows the full session count for the last 30 days. Same visual weight as `AssignmentCard`'s strip.
+- **Why a student notices it:** completes the parallel between assignments and tests in the place a student is already scanning to decide what to study next. Picks "this is the test you've put 90 minutes into already, last touched 3h ago" out of a list of upcoming tests without bouncing to a separate timeline view.
+- **Safety.** Pure read-side localStorage walk — same posture as the assignment-side helper. No PII off-device. No new external API integrations.
+  - feat: 4e53059 · https://github.com/landon-personal/gradeguardnewsync/commit/4e53059
+
+### Added (web) — Milestone confetti for the daily flashcard review streak 🎉🔥
+
+- **`src/lib/flashcardReviewStreak.js`** + **`src/components/assistant/FlashcardViewer.jsx`** + **`src/components/assistant/CrossDeckReview.jsx`** — closes the **first follow-up flagged in shift report #98**. The assignment-completion streak fires confetti at 7/14/30/50/100 via `FloatingStreakCounter` (line 80), but the parallel review streak shipped in #98 silently rolled past those same numbers without any payoff.
+- **What changed.** New `ackReviewStreakMilestone(streak)` export — same milestones, same streak-break recovery as the assignment-side gate (a persisted marker > current streak means the streak broke since the last celebration; reset so a rebuild re-fires instead of swallowing the milestone forever). The lib owns the device-wide guard so `FlashcardViewer` and `CrossDeckReview` can both subscribe without double-firing on the same milestone day.
+- **Trigger.** `useEffect` on `phase === "done"` in both viewers reads the streak, asks the lib to ack, fires confetti if hit. Same particle config + colors as the assignment-streak fire (90 particles, 75° spread, orange/amber/red/violet palette) so the UX feels consistent across both streak types.
+- **Why a student notices it:** the wrap-up screen of every session already shows the streak chip; today the milestone hit gets a 90-particle visual pop instead of a quietly-incremented number. Real emotional payoff for the daily-rep behavior the spaced-rep ladder is trying to build.
+  - feat: 4201ac2 · https://github.com/landon-personal/gradeguardnewsync/commit/4201ac2
+
+### Fixed (web) — `DeadlineCalendar` self-rescheduling midnight tick
+
+- **`src/components/dashboard/DeadlineCalendar.jsx`** — `today` was captured at render only, so a dashboard left open across midnight kept yesterday's date un-greyed and the new today un-highlighted until the next remount. Flagged as a low-frequency real bug in shift report #99.
+- **Fix.** Same `setHours(24, 0, 0, 0)` self-rescheduling tick pattern that `DailyFocusGoalMini` (line 89) and `TestCard`'s deck-summary effect already use: `useState` for `today`, effect schedules a `setTimeout` to next local midnight that bumps `setToday(new Date())` and re-arms itself. Ripples into the existing `isPast` / `isToday` calls without any other changes.
+  - fix: 0401c31 · https://github.com/landon-personal/gradeguardnewsync/commit/0401c31
+
+### Fixed (web) — `FriendCodeCard` lying-success copy
+
+- **`src/components/friends/FriendCodeCard.jsx`** — tapping the code button before the friend-code finished loading copied an empty string and toasted "Friend code copied!" — a lying success state flagged in shift report #98. `copyCode` now bails on falsy `myCode`; the button is `disabled` with `opacity-60 + cursor-not-allowed` while the placeholder "LOADING" is showing, plus an `aria-label` that flips between the loading / copy intents for screen readers.
+  - fix: 61b600c · https://github.com/landon-personal/gradeguardnewsync/commit/61b600c
+
+### Fixed (web) — `CrossDeckReview` Restart rebuilds queue from current due state
+
+- **`src/components/assistant/CrossDeckReview.jsx`** — closes the follow-up flagged in shift report #97. If a student marked every queued card mastered then tapped Restart, the snapshotted queue stepped them through cards that were no longer due — confusing because the wrap-up just celebrated those same cards as mastered.
+- **Fix.** Refactored the queue + deckIndex into a single `useState` so it has a setter; `restartSession` rebuilds the queue from the now-current due state, resets `tally` and `masteryByDeck` alongside the fresh `deckIndex`, and routes empty new-queue → existing empty state. The mid-run snapshot stays in place on every "Got it" mark (intentional — avoids index shift under the student); only explicit Restart triggers the rebuild.
+  - fix: 3a5ee43 · https://github.com/landon-personal/gradeguardnewsync/commit/3a5ee43
+
+---
+
 ## [Unreleased] — 2026-05-04 22:12 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
