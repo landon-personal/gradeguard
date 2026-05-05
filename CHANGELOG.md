@@ -17,6 +17,38 @@ Features that have been built and reverted by the boss. **Future shifts must NOT
 
 ---
 
+## [Unreleased] — 2026-05-05 02:09 UTC shift
+
+Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
+
+### Added (web) — 30-day flashcard-review streak heatmap 📅🔥
+
+- **`src/components/dashboard/FlashcardStreakHeatmap.jsx`** (new) + **`src/components/dashboard/FlashcardReviewMini.jsx`** + **`src/components/assistant/SavedDecksPanel.jsx`** — closes the streak-detail follow-up flagged in shift reports **#98** and **#100**. `flashcardReviewStreak.lastNDays(n)` was exported back in #98 ("kept here so a future streak-detail panel can render without re-deriving the loop"), but no surface used it until this shift. With milestone confetti added in #100 rewarding the daily rep, a heatmap was the missing visual surface for "where are the gaps in my rhythm?"
+- **What changed.** New 30-cell horizontal heatmap component: each cell = one local day, hit cells gradient-orange (`from-orange-400 to-amber-500`), miss cells `bg-gray-200`, today ring-highlighted (`ring-2 ring-orange-300 ring-offset-1`) so the most-recent column reads as the live edge regardless of hit/miss state. Hover-title shows `"Mon, May 5 — reviewed"` / `"… — no review"`. Header line surfaces `"<hits> / 30 days"` so the at-a-glance ratio lands without counting cells.
+- **Where it surfaces.** Two locations, gated on `streak > 0` so it doesn't loom all-gray for students who haven't started reviewing. (1) `FlashcardReviewMini` cards-due state: compact strip below the deck list, above the cross-deck refresher CTA. (2) `FlashcardReviewMini` caught-up state: full-size strip below the streak chip — the previously-empty area where the mini sat with just the flame chip when the queue was clear. (3) `SavedDecksPanel` header (StudyAssistant page): same compact density, lands directly between the streak chip row and the cross-deck refresher CTA.
+- **Live updates.** Same listener pattern as the rest of the streak surfaces: `REVIEW_STREAK_CHANGED_EVENT` (same-tab via `recordReviewDay` → `emitStreakChanged`) + cross-tab `storage` event for `gg_flashcard_review_days` + self-rescheduling `setTimeout` to next local midnight + 5s, so the 30-day window rolls forward correctly when the dashboard sits open across midnight without a remount.
+- **Why a student notices it:** rhythm visualization. The streak counter says "5 days" but the heatmap says "you've been daily for two weeks except last Wednesday and Friday — go re-review one card today to keep the chain alive." That's the motivational signal we were missing — the flame chip alone is binary (on/off), the heatmap is a calendar.
+- **Safety.** Pure client-side; reads only the existing `gg_flashcard_review_days` key (date stamps, no card content). No PII off-device. No new dependencies.
+  - feat: 1e9e7ed · https://github.com/landon-personal/gradeguardnewsync/commit/1e9e7ed
+  - feat: 4c500a4 · https://github.com/landon-personal/gradeguardnewsync/commit/4c500a4
+
+### Added (web) — Subject-goals pills tap-to-open SubjectDetailModal
+
+- **`src/components/dashboard/SubjectGoalsStrip.jsx`** — closes the open question raised in shift report **#100**: the per-subject weekly-goal pills on Dashboard + FocusTimer were styled like rich informational cards but had no click handler, so a student wanting to adjust the goal, see the trend, or snooze something had to scroll to `SubjectEffortIndex` / `GradeTrends` to find a tappable surface for the same subject. (Report #99 incorrectly claimed the rows already had `onClick`; #100 corrected that — they did not. This shift wires it up.)
+- **What changed.** Each pill is now a `<button>` with hover lift (`hover:-translate-y-px hover:shadow-sm`) and indigo focus ring (`focus-visible:ring-2 focus-visible:ring-indigo-300`). Tapping opens `SubjectDetailModal` scoped to that subject (`defaultView="goal"` so the goal slider is the immediate landing surface — most likely thing the student wants to do from this strip). On modal close, the strip's internal `tick` bumps so a freshly-set goal re-renders the pill without a remount or parent refetch.
+- **Keyboard nav comes free.** `<button type="button">` is tab-reachable + Enter/Space-activatable by default, closing the keyboard-arrow-nav request from #99 with the simpler "tab → enter" gesture instead of building a custom roving tabindex.
+- **`trend` prop is null.** The strip doesn't compute trends locally (it's per-week-minutes, not per-grade-trend) — same posture `GradeTrends` and `SubjectEffortIndex` use when the caller doesn't pre-resolve a trend; the modal handles `trend=null` gracefully.
+  - feat: e3ddfe6 · https://github.com/landon-personal/gradeguardnewsync/commit/e3ddfe6
+
+### Added (web) — Pomodoro intention-input example hints
+
+- **`src/components/dashboard/PomodoroTimer.jsx`** — closes the empty-state coaching item flagged in **#99** and **#100**. The intention input shipped in #99 had only the placeholder `"Goal for this session (optional)"`, so a student who'd never used intentions had no idea what kind of phrasing actually drove the WeeklyRecap analytics. The prior report explicitly called out: "a student who's never used intentions doesn't know that 'Solve problems 1–10' lands better than 'Math homework'."
+- **What changed.** A tiny line (`text-[9.5px] text-gray-400`) below the input shows two concrete examples in indigo: `Try: "Solve problems 1–10" · "Outline essay intro"`. Renders only when the input is empty AND the timer is idle (i.e., the cards-empty state). Hides instantly the moment the student starts typing — so it dismisses naturally on every session that already gets an intention; no localStorage gate needed (it's quiet enough not to nag returning users).
+- **Why a student notices it:** transforms the input from "open-ended box that asks for a goal" into "open-ended box with two anchored examples of the right altitude." The examples are deliberately specific (`Solve problems 1–10`, `Outline essay intro`) — not vague ("study", "do homework") — to prime the kind of phrasing that lands in the WeeklyRecap intention stats.
+  - feat: 6e44fc9 · https://github.com/landon-personal/gradeguardnewsync/commit/6e44fc9
+
+---
+
 ## [Unreleased] — 2026-05-05 00:09 UTC shift
 
 Pushed straight to the new web canonical (`landon-personal/gradeguardnewsync`, auto-syncs to gradeguard.org). No new desktop installer cut for these.
